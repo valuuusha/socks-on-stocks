@@ -10,7 +10,7 @@ from models.entities import FTPProfile
 
 StatusCallback = Callable[[Path, str], None]
 ProgressCallback = Callable[[int, int], None]
-FTP_EXCEPTIONS = all_errors + (OSError,)
+NETWORK_AND_FTP_ERRORS = all_errors + (OSError,)
 
 
 class FTPService:
@@ -44,7 +44,7 @@ class FTPService:
                     with file_path.open("rb") as file_obj:
                         ftp.storbinary(f"STOR {file_path.name}", file_obj)
                     status_callback(file_path, "Uploaded")
-                except FTP_EXCEPTIONS as error:  # pragma: no cover - network side effect
+                except NETWORK_AND_FTP_ERRORS as error:  # pragma: no cover - network side effect
                     status_callback(file_path, self._format_error_status(error))
                 finally:
                     completed += 1

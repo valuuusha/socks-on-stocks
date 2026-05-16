@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         self.ftp_service = ftp_service
         self.images: dict[str, ImportedImage] = {}
 
-        self.setWindowTitle("socks-on-stocks")
+        self.setWindowTitle("Socks on Stocks")
         self.resize(1200, 760)
         self._setup_ui()
         self._reload_ftp_profiles()
