@@ -44,7 +44,16 @@ class FTPService:
                         ftp.storbinary(f"STOR {file_path.name}", file_obj)
                     status_callback(file_path, "Uploaded")
                 except Exception as error:  # pragma: no cover - network side effect
-                    status_callback(file_path, f"Failed: {error}")
+                    status_callback(file_path, self._format_error_status(error))
                 finally:
                     completed += 1
                     progress_callback(completed, total_files)
+
+    @staticmethod
+    def _format_error_status(error: Exception) -> str:
+        message = str(error).lower()
+        if "timed out" in message:
+            return "Failed: connection timed out"
+        if "530" in message:
+            return "Failed: authentication error"
+        return "Failed"

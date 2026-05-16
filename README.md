@@ -33,6 +33,10 @@ README.md
   - Use database metadata
 - FTP profiles and selected-file upload with per-file status and overall progress
 
+## Security note
+
+For this MVP scaffold, FTP profile passwords are stored in the local SQLite database as plain text to keep implementation simple. Use only on trusted local machines and plan secure credential storage (e.g., OS keychain integration) before production use.
+
 ## Run locally
 
 ```bash
