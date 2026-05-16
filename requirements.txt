@@ -1,0 +1,4 @@
+PyQt6>=6.7.0
+pyexiftool>=0.5.6
+Pillow>=10.0.0
+PyInstaller>=6.10.0
