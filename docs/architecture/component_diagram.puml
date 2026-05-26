@@ -1,0 +1,45 @@
+@startuml
+title Component Diagram: Socks on Stocks
+
+package "Presentation Layer (React + TypeScript)" {
+  [Desktop UI] as UI
+}
+
+package "Application Layer (Python FastAPI)" {
+  [API Routers] as API
+  [File Import Service] as FileService
+  [Metadata Service] as MetaService
+  [FTP Queue Manager] as FTPService
+}
+
+package "Data Layer" {
+  [SQLAlchemy ORM] as ORM
+  database "SQLite DB" as DB
+}
+
+package "Local System & Tools" {
+  [Local File System] as LocalFS
+  [ExifTool (Subprocess)] as ExifTool
+}
+
+package "External Systems" {
+  cloud "FTP Servers\n(Shutterstock, Adobe Stock)" as FTPServers
+}
+
+UI --> API : REST API (JSON)
+API --> FileService : import & validate files
+API --> MetaService : read/write tags
+API --> FTPService : start mass upload
+
+FileService --> LocalFS : check access & read
+MetaService --> ExifTool : execute CLI commands
+ExifTool --> LocalFS : read/update physical JPEG
+
+FileService --> ORM : CRUD files & folders
+MetaService --> ORM : update metadata records
+FTPService --> ORM : update upload status
+
+ORM --> DB : SQL queries
+FTPService --> FTPServers : FTP protocol
+
+@enduml

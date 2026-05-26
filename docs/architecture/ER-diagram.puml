@@ -1,0 +1,39 @@
+@startuml
+title ER-Diagram: Socks on Stocks Database
+
+hide circle
+skinparam linetype ortho
+
+entity "LocalFile" as LocalFile {
+  * id : INTEGER <<PK>>
+  --
+  filename : VARCHAR
+  absolute_path : VARCHAR <<UNIQUE>>
+  file_size_kb : FLOAT
+  status : VARCHAR
+  folder_id : INTEGER <<FK>>
+}
+
+entity "FileMetadata" as FileMetadata {
+  * id : INTEGER <<PK>>
+  --
+  file_id : INTEGER <<FK>> <<UNIQUE>>
+  title : VARCHAR
+  description : TEXT
+  keywords : JSON
+}
+
+entity "FTPProfile" as FTPProfile {
+  * id : INTEGER <<PK>>
+  --
+  profile_name : VARCHAR
+  host : VARCHAR
+  port : INTEGER
+  username : VARCHAR
+  encrypted_password : VARCHAR
+  remote_dir : VARCHAR
+}
+
+LocalFile ||--|| FileMetadata : "has"
+
+@enduml
