@@ -12,26 +12,44 @@ Manage metadata (EXIF/IPTC/XMP) and upload files to stock platforms via FTP — 
 - Local SQLite database with CSV export/import
 
 ## Tech Stack
-
 - Python 3.11+
-- SQLite
+- FastAPI
+- SQLite + SQLAlchemy
 - ExifTool / Pillow + piexif
+- React + TypeScript
 
 ## Getting Started
-
 ```bash
 git clone https://github.com/valuuusha/socks-on-stocks.git
 cd socks-on-stocks
+
+# backend
 pip install -r requirements.txt
-python src/main.py
+uvicorn backend.main:app --reload
+
+# frontend
+cd src
+npm install
+npm run dev
 ```
 
 ## Project Structure
-
 ```
-docs/       # project documentation
-src/        # application source code
-tests/      # tests
+socks-on-stocks/
+├── src/           # React + TypeScript frontend
+│   ├── components/
+│   ├── store/
+│   └── api/
+├── backend/       # Python FastAPI backend
+│   ├── api/
+│   ├── services/
+│   ├── models.py
+│   ├── schemas.py
+│   ├── database.py
+│   └── main.py
+├── docs/          # project documentation
+├── tests/         # tests
+└── requirements.txt
 ```
 
 ## Team
