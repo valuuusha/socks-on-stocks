@@ -11,7 +11,7 @@ entity "LocalFile" as LocalFile {
   absolute_path : VARCHAR <<UNIQUE>>
   file_size_kb : FLOAT
   status : VARCHAR
-  folder_id : INTEGER <<FK>>
+  file_format : VARCHAR
 }
 
 entity "FileMetadata" as FileMetadata {
