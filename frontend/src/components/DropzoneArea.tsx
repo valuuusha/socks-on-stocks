@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, DragEvent } from "react";
 
+import { importFiles } from "../api/client";
 import { useFileStore } from "../store/useFileStore";
 
 const ACCEPTED_FILE_TYPES = ".jpg,.jpeg,image/jpeg";
@@ -12,6 +13,19 @@ const isJpegFile = (file: File) => {
     file.type === "image/jpeg" ||
     lowerCaseName.endsWith(".jpg") ||
     lowerCaseName.endsWith(".jpeg")
+  );
+};
+
+const getFilePath = (file: File) => {
+  const fileWithOptionalPath = file as File & {
+    path?: string;
+    webkitRelativePath?: string;
+  };
+
+  return (
+    fileWithOptionalPath.path ||
+    fileWithOptionalPath.webkitRelativePath ||
+    file.name
   );
 };
 
@@ -69,8 +83,14 @@ export const DropzoneArea = () => {
     inputRef.current?.click();
   };
 
-  const importSelectedFiles = (selectedFiles: FileList | File[]) => {
+  const importSelectedFiles = async (selectedFiles: FileList | File[]) => {
     const filesArray = Array.from(selectedFiles);
+
+    if (filesArray.length === 0) {
+      setValidationMessage("");
+      return;
+    }
+
     const jpegFiles = filesArray.filter(isJpegFile);
     const rejectedCount = filesArray.length - jpegFiles.length;
 
@@ -87,6 +107,8 @@ export const DropzoneArea = () => {
     setIsImporting(true);
 
     try {
+      const selectedPaths = jpegFiles.map(getFilePath);
+      await importFiles(selectedPaths);
       addFiles(jpegFiles);
     } finally {
       setIsImporting(false);
@@ -95,7 +117,7 @@ export const DropzoneArea = () => {
 
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      importSelectedFiles(event.target.files);
+      void importSelectedFiles(event.target.files);
     }
 
     event.target.value = "";
@@ -117,7 +139,7 @@ export const DropzoneArea = () => {
     event.preventDefault();
     event.stopPropagation();
     setIsDragging(false);
-    importSelectedFiles(event.dataTransfer.files);
+    void importSelectedFiles(event.dataTransfer.files);
   };
 
   return (
