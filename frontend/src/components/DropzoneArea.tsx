@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties, DragEvent } from "react";
 
-import { importFiles } from "../api/client";
+import { uploadFiles } from "../api/client";
 import { useFileStore } from "../store/useFileStore";
 
 const ACCEPTED_FILE_TYPES = ".jpg,.jpeg,image/jpeg";
@@ -13,19 +13,6 @@ const isJpegFile = (file: File) => {
     file.type === "image/jpeg" ||
     lowerCaseName.endsWith(".jpg") ||
     lowerCaseName.endsWith(".jpeg")
-  );
-};
-
-const getFilePath = (file: File) => {
-  const fileWithOptionalPath = file as File & {
-    path?: string;
-    webkitRelativePath?: string;
-  };
-
-  return (
-    fileWithOptionalPath.path ||
-    fileWithOptionalPath.webkitRelativePath ||
-    file.name
   );
 };
 
@@ -94,11 +81,12 @@ export const DropzoneArea = () => {
     const jpegFiles = filesArray.filter(isJpegFile);
     const rejectedCount = filesArray.length - jpegFiles.length;
 
-    setValidationMessage(
+    const clientValidationMessage =
       rejectedCount > 0
         ? "Only JPEG files with .jpg or .jpeg extension can be imported."
-        : "",
-    );
+        : "";
+
+    setValidationMessage(clientValidationMessage);
 
     if (jpegFiles.length === 0) {
       return;
@@ -107,9 +95,21 @@ export const DropzoneArea = () => {
     setIsImporting(true);
 
     try {
-      const selectedPaths = jpegFiles.map(getFilePath);
-      await importFiles(selectedPaths);
-      addFiles(jpegFiles);
+      const result = await uploadFiles(jpegFiles);
+      addFiles(result.imported);
+
+      const backendMessage =
+        result.rejected.length > 0
+          ? `${result.rejected.length} file(s) could not be imported. ${result.rejected[0].reason}`
+          : "";
+
+      setValidationMessage(
+        [clientValidationMessage, backendMessage].filter(Boolean).join(" "),
+      );
+    } catch (error) {
+      setValidationMessage(
+        error instanceof Error ? error.message : "Files could not be imported.",
+      );
     } finally {
       setIsImporting(false);
     }
@@ -174,12 +174,12 @@ export const DropzoneArea = () => {
         }}
         type="button"
       >
-        {isImporting ? "Importing..." : "Import JPEG / Завантажити фото"}
+        {isImporting ? "Importing..." : "Import JPEG"}
       </button>
 
       {validationMessage && <p style={styles.message}>{validationMessage}</p>}
       {files.length > 0 && (
-        <p style={styles.hint}>{files.length} JPEG file(s) selected.</p>
+        <p style={styles.hint}>{files.length} JPEG file(s) imported.</p>
       )}
     </section>
   );

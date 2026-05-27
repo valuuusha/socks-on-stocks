@@ -1,20 +1,171 @@
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
-export type ImportFilesResult = {
-  paths: string[];
+export type ApiFileResponse = {
+  id: number;
+  filename: string;
+  absolute_path: string;
+  file_size_kb: number;
+  file_format: string;
+  status: string;
+};
+
+export type ImportedFile = {
+  id: number;
+  filename: string;
+  absolutePath: string;
+  fileSizeKb: number;
+  fileFormat: string;
+  status: string;
+  thumbnailUrl: string;
+};
+
+export type RejectedFile = {
+  path: string;
+  reason: string;
+};
+
+type ApiImportFilesResult = {
+  imported: ApiFileResponse[];
+  rejected: RejectedFile[];
   total: number;
 };
+
+export type ImportFilesResult = {
+  imported: ImportedFile[];
+  rejected: RejectedFile[];
+  total: number;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const getErrorMessage = (body: unknown, fallback: string) => {
+  if (!isRecord(body) || !("detail" in body)) {
+    return fallback;
+  }
+
+  const { detail } = body;
+
+  if (typeof detail === "string") {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) =>
+        isRecord(item) && typeof item.msg === "string" ? item.msg : "",
+      )
+      .filter(Boolean);
+
+    return messages.length > 0 ? messages.join(" ") : fallback;
+  }
+
+  return fallback;
+};
+
+const requestJson = async <T>(
+  endpoint: string,
+  options?: RequestInit,
+): Promise<T> => {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    let errorBody: unknown = null;
+
+    try {
+      errorBody = await response.json();
+    } catch {
+      errorBody = null;
+    }
+
+    throw new Error(
+      getErrorMessage(errorBody, `Request failed with status ${response.status}.`),
+    );
+  }
+
+  return response.json() as Promise<T>;
+};
+
+export const getThumbnailUrl = (fileId: number) =>
+  `${API_BASE_URL}/api/files/${fileId}/thumbnail`;
+
+const toImportedFile = (file: ApiFileResponse): ImportedFile => ({
+  id: file.id,
+  filename: file.filename,
+  absolutePath: file.absolute_path,
+  fileSizeKb: file.file_size_kb,
+  fileFormat: file.file_format,
+  status: file.status,
+  thumbnailUrl: getThumbnailUrl(file.id),
+});
 
 export const importFiles = async (
   paths: string[],
 ): Promise<ImportFilesResult> => {
+  const result = await requestJson<ApiImportFilesResult>("/api/files/import", {
+    method: "POST",
+    body: JSON.stringify({ paths }),
+  });
+
   return {
-    paths,
-    total: paths.length,
+    imported: result.imported.map(toImportedFile),
+    rejected: result.rejected,
+    total: result.total,
   };
+};
+
+export const uploadFiles = async (
+  files: File[],
+): Promise<ImportFilesResult> => {
+  const formData = new FormData();
+
+  for (const file of files) {
+    formData.append("files", file);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/files/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let errorBody: unknown = null;
+
+    try {
+      errorBody = await response.json();
+    } catch {
+      errorBody = null;
+    }
+
+    throw new Error(
+      getErrorMessage(errorBody, `Request failed with status ${response.status}.`),
+    );
+  }
+
+  const result = (await response.json()) as ApiImportFilesResult;
+
+  return {
+    imported: result.imported.map(toImportedFile),
+    rejected: result.rejected,
+    total: result.total,
+  };
+};
+
+export const listFiles = async (): Promise<ImportedFile[]> => {
+  const files = await requestJson<ApiFileResponse[]>("/api/files/");
+  return files.map(toImportedFile);
 };
 
 export const apiClient = {
   baseUrl: API_BASE_URL,
+  getThumbnailUrl,
   importFiles,
+  uploadFiles,
+  listFiles,
 };

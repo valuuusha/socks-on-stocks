@@ -20,6 +20,9 @@ pnpm-debug.log*
 *.sqlite
 *.sqlite3
 
+# Local uploaded media
+backend/storage/
+
 # Build / packaging
 dist/
 build/
