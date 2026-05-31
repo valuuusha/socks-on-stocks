@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse as ThumbnailFileResponse
 from sqlalchemy.exc import IntegrityError
@@ -17,6 +15,7 @@ from backend.services.thumbnail_service import (
     PreviewGenerationError,
     preview_generator,
 )
+from backend.services.file_service import file_import_service
 from backend.services.upload_storage_service import (
     UploadStorageError,
     StoredUpload,
@@ -80,55 +79,7 @@ def import_files(
       422 - the request body itself is malformed
     """
 
-    imported_records: list[LocalFile] = []
-    rejected_files: list[RejectedFile] = []
-
-    new_db_objects: list[LocalFile] = []
-
-    for path in request.paths:
-        existing = (db.query(LocalFile).filter(LocalFile.absolute_path == path).first())
-        if existing:
-            imported_records.append(existing)
-            continue
-
-        source_path = Path(path)
-
-        try:
-            preview_generator.validate_jpeg(path)
-            file_size_kb = round(source_path.stat().st_size / 1024, 2)
-        except (OSError, PreviewGenerationError) as exc:
-            rejected_files.append(
-                RejectedFile(
-                    path=path,
-                    reason=str(exc) or "File could not be imported.",
-                )
-            )
-            continue
-
-        try:
-            preview_generator.generate(path)
-        except PreviewGenerationError:
-            pass
-
-        new_db_objects.append(
-            LocalFile(
-                filename=source_path.name,
-                absolute_path=path,
-                file_size_kb=file_size_kb,
-                file_format="JPEG",
-                status="imported",
-            )
-        )
-
-    imported_records.extend(
-        _save_imported_records(db, new_db_objects, rejected_files)
-    )
-
-    return ImportResult(
-        imported=[FileResponse.model_validate(f) for f in imported_records],
-        rejected=rejected_files,
-        total=len(request.paths),
-    )
+    return file_import_service.validate_and_import(request.paths, db)
 
 
 # POST /api/files/upload
@@ -157,6 +108,16 @@ async def upload_files(
     pending_upload_paths: set[str] = set()
 
     for upload in files:
+        if not file_import_service.has_supported_extension(upload.filename or ""):
+            rejected_files.append(
+                RejectedFile(
+                    path=upload.filename or "uploaded file",
+                    reason="Only .jpg and .jpeg files can be imported.",
+                )
+            )
+            await upload.close()
+            continue
+
         try:
             stored = await upload_storage.save(upload)
         except UploadStorageError as exc:
