@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from sqlalchemy.exc import IntegrityError
@@ -44,6 +45,16 @@ class FileImportService:
                 )
                 continue
 
+            access_error = self.get_file_access_error(source_path)
+            if access_error:
+                rejected_files.append(
+                    RejectedFile(
+                        path=path,
+                        reason=access_error,
+                    )
+                )
+                continue
+
             try:
                 preview_generator.validate_jpeg(path)
                 file_size_kb = round(source_path.stat().st_size / 1024, 2)
@@ -83,6 +94,18 @@ class FileImportService:
 
     def has_supported_extension(self, filename: str) -> bool:
         return Path(filename).suffix.lower() in self.allowed_extensions
+
+    def get_file_access_error(self, source_path: Path) -> str | None:
+        if not source_path.exists():
+            return "File does not exist on disk."
+
+        if not source_path.is_file():
+            return "Path does not point to a file."
+
+        if not os.access(source_path, os.R_OK):
+            return "File is not readable."
+
+        return None
 
     def _save_imported_records(
         self,
