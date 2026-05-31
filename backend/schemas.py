@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, StrictStr, field_validator
 
 
 class FileImportRequest(BaseModel):
@@ -9,12 +9,12 @@ class FileImportRequest(BaseModel):
         { "paths": ["/Users/anna/photos/cat.jpg", "/Users/anna/photos/dog.jpeg"] }
     """
 
-    paths: list[str]
+    paths: list[StrictStr]
     """Non-empty list of absolute file paths chosen by the user."""
 
     @field_validator("paths")
     @classmethod
-    def must_not_be_empty(cls, v: list[str]) -> list[str]:
+    def must_not_be_empty(cls, v: list[StrictStr]) -> list[StrictStr]:
         if not v:
             raise ValueError("The paths list must contain at least one file path.")
         return v
