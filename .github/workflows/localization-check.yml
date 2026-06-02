@@ -1,0 +1,34 @@
+name: Non-English Characters Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+
+jobs:
+  check-english-only:
+    name: Check for non-English characters in code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for non-English characters
+        run: |
+          echo "Scanning frontend/ and backend/ for non-English characters..."
+
+          FOUND=$(grep -rn \
+            --include="*.html" --include="*.ts" --include="*.py" \
+            --include="*.json" --include="*.jsx" --include="*.tsx" \
+            -P "[^\x00-\x7F]" frontend/ backend/ || true)
+
+          if [ -n "$FOUND" ]; then
+            echo "Non-English characters found:"
+            echo "$FOUND"
+            exit 1
+          else
+            echo "No non-English characters found."
+          fi
