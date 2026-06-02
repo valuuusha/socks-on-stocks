@@ -223,3 +223,14 @@ def list_files(db: Session = Depends(get_db)) -> list[FileResponse]:
     """Returns every LocalFile row; used on app startup to restore state."""
     files = db.query(LocalFile).all()
     return [FileResponse.model_validate(f) for f in files]
+
+# DELETE /api/files/{file_id}
+@router.delete("/{file_id}", status_code=204)
+def delete_file_from_workspace(file_id: int, db: Session = Depends(get_db)):
+    db_file = db.query(LocalFile).filter(LocalFile.id == file_id).first()
+    if not db_file:
+        raise HTTPException(status_code=404, detail="File was not found.")
+
+    db.delete(db_file)
+    db.commit()
+    return

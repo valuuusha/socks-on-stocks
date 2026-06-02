@@ -169,3 +169,21 @@ export const apiClient = {
   uploadFiles,
   listFiles,
 };
+
+export const deleteFile = async (id: number): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/files/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    let errorBody: unknown = null;
+    try {
+      errorBody = await response.json();
+    } catch {
+      errorBody = null;
+    }
+    throw new Error(
+      getErrorMessage(errorBody, `Failed to delete file with status ${response.status}.`)
+    );
+  }
+};
