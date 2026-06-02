@@ -14,6 +14,7 @@ export type FileStoreActions = {
   clearFiles: () => void;
   setFiles: (files: ImportedFile[]) => void;
   setIsImporting: (isImporting: boolean) => void;
+  removeFile: (id: number) => void;
 };
 
 type FileStore = FileStoreState & FileStoreActions;
@@ -31,4 +32,8 @@ export const useFileStore = create<FileStore>()((set) => ({
   clearFiles: () => set({ files: [] }),
   setFiles: (files) => set({ files }),
   setIsImporting: (isImporting) => set({ isImporting }),
+  removeFile: (id) => 
+    set((state) => ({
+      files: state.files.filter((file) => file.id !== id),
+    })),
 }));

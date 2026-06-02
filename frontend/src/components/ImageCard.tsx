@@ -1,6 +1,7 @@
 import { useState } from "react";
-
 import type { ImportedFile } from "../store/useFileStore";
+import { deleteFile } from "../api/client";
+import { useFileStore } from "../store/useFileStore";
 
 type ImageCardProps = {
   file: ImportedFile;
@@ -16,9 +17,29 @@ const formatFileSize = (sizeKb: number) => {
 
 export const ImageCard = ({ file }: ImageCardProps) => {
   const [hasPreviewError, setHasPreviewError] = useState(false);
+  const removeFile = useFileStore((state) => state.removeFile);
+
+  const handleDelete = async () => {
+    try {
+      await deleteFile(file.id);
+      removeFile(file.id);
+    } catch (error) {
+      console.error("Error while deleting a file:", error);
+      alert("Couldn't delete a file");
+    }
+  };
 
   return (
-    <article className="image-card">
+    <article className="image-card"> 
+      
+      <button 
+        className="image-card__delete-btn"
+        onClick={handleDelete}
+        title="Delete from workspace"
+      >
+        ✕
+      </button>
+
       <div className="image-card__preview">
         {hasPreviewError ? (
           <div className="image-card__fallback" role="img" aria-label={file.filename}>
@@ -37,7 +58,7 @@ export const ImageCard = ({ file }: ImageCardProps) => {
 
       <div className="image-card__meta">
         <h3 title={file.filename}>{file.filename}</h3>
-        <p>{formatFileSize(file.fileSizeKb)}</p>
+        <p>{file.fileFormat} • {formatFileSize(file.fileSizeKb)}</p>
       </div>
     </article>
   );
