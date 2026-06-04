@@ -71,7 +71,7 @@ export const ImageCard = ({ file }: ImageCardProps) => {
         </div>
         <div className="image-row__meta-info">
           <span title={file.filename} className="filename">{file.filename}</span>
-          <span className="file-size">{file.fileFormat} • {formatFileSize(file.fileSizeKb)}</span>
+          <span className="file-size">{file.fileFormat} - {formatFileSize(file.fileSizeKb)}</span>
         </div>
       </div>
 

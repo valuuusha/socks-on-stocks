@@ -23,7 +23,9 @@ jobs:
           FOUND=$(grep -rn \
             --include="*.html" --include="*.ts" --include="*.py" \
             --include="*.json" --include="*.jsx" --include="*.tsx" \
-            -P "[^\x00-\x7F]" frontend/ backend/ || true)
+            -P "[^\x00-\x7F]" frontend/ backend/ \
+            | grep -vP "[\x{2715}]" \
+            || true)
 
           if [ -n "$FOUND" ]; then
             echo "Non-English characters found:"

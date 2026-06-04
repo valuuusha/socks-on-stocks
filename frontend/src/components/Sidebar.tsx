@@ -5,7 +5,6 @@ import { getMetadata, updateMetadata } from "../api/client";
 export const Sidebar = () => {
   const selectedFileId = useFileStore((state) => state.selectedFileId);
   
-  // Локальний стейт полів
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +50,7 @@ export const Sidebar = () => {
       ) : (
         <div className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Назва (Title)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Title</label>
             <input
               type="text"
               className="w-full border rounded px-3 py-2 text-sm focus:outline-blue-500"
@@ -63,7 +62,7 @@ export const Sidebar = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Опис (Description)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
             <textarea
               className="w-full border rounded px-3 py-2 text-sm h-32 focus:outline-blue-500"
               value={description}

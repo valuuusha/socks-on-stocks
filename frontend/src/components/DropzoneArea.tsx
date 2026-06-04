@@ -24,7 +24,7 @@ const styles = {
     textAlign: "center",
     backgroundColor: "#ffffff",
     color: "#111827",
-    cursor: "pointer", // Тепер вся зона показує, що вона клікабельна
+    cursor: "pointer",
     transition: "border-color 160ms ease, background-color 160ms ease",
   },
   wrapperActive: {
