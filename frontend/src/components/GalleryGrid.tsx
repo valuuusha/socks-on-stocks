@@ -1,4 +1,4 @@
-import ImageCard from "./ImageCard";
+import { ImageCard } from "./ImageCard";
 import { useFileStore } from "../store/useFileStore";
 
 export const GalleryGrid = () => {

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import init_db
 from backend.api.files import router as files_router
+from backend.api.metadata import router as metadata_router
 
 app = FastAPI(
     title="Socks on Stocks API",
@@ -22,7 +23,7 @@ app.add_middleware(
 )
 
 app.include_router(files_router)
-
+app.include_router(metadata_router)
 
 @app.on_event("startup")
 def on_startup():

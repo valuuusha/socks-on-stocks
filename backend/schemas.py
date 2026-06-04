@@ -1,5 +1,5 @@
 from pydantic import BaseModel, StrictStr, field_validator
-
+from typing import Optional, List
 
 class FileImportRequest(BaseModel):
     """
@@ -23,7 +23,7 @@ class FileImportRequest(BaseModel):
 class FileResponse(BaseModel):
     """
     Represents a successfully imported file as returned to the frontend.
-    Only exposes the fields the UI actually needs — never leaks internal DB state.
+    Only exposes the fields the UI actually needs - never leaks internal DB state.
     """
 
     id: int
@@ -34,7 +34,6 @@ class FileResponse(BaseModel):
     status: str
 
     model_config = {"from_attributes": True}
-
 
 
 class RejectedFile(BaseModel):
@@ -52,7 +51,7 @@ class ImportResult(BaseModel):
     """Files that passed validation and were saved to the DB."""
 
     rejected: list[RejectedFile]
-    """Files that failed validation — NOT added to the workspace."""
+    """Files that failed validation - not added to the workspace."""
 
     total: int
     """Total number of paths that were submitted."""
@@ -60,3 +59,18 @@ class ImportResult(BaseModel):
     @property
     def summary(self) -> str:
         return f"Imported {len(self.imported)} of {self.total} files."
+
+class MetadataUpdate(BaseModel):
+    """Data that will come from the frontend when editing (onBlur)."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    keywords: Optional[List[str]] = None
+
+class MetadataResponse(BaseModel):
+    """Data that we provide to the frontend to fill in the fields."""
+    file_id: int
+    title: str
+    description: str
+    keywords: List[str]
+    
+    model_config = {"from_attributes": True}

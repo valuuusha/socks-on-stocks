@@ -42,7 +42,6 @@ class PreviewGenerator:
                 if image.format != "JPEG":
                     raise PreviewGenerationError("Only JPEG images can be previewed.")
 
-                # Lets Pillow decode a lower-resolution JPEG when the source is huge.
                 image.draft("RGB", self.max_size)
                 image = ImageOps.exif_transpose(image)
                 image.thumbnail(self.max_size, Image.Resampling.LANCZOS)

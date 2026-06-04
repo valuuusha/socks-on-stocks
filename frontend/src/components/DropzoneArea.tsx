@@ -18,46 +18,50 @@ const isJpegFile = (file: File) => {
 
 const styles = {
   wrapper: {
-    border: "2px dashed #7a8aa0",
+    border: "2px dashed #d1d5db",
     borderRadius: "8px",
     padding: "32px",
     textAlign: "center",
-    backgroundColor: "#f8fafc",
-    color: "#172033",
+    backgroundColor: "#ffffff",
+    color: "#111827",
+    cursor: "pointer",
     transition: "border-color 160ms ease, background-color 160ms ease",
   },
   wrapperActive: {
-    borderColor: "#2563eb",
+    borderColor: "#3b82f6",
     backgroundColor: "#eff6ff",
+  },
+  wrapperCompact: {
+    padding: "0 16px",
+    height: "44px",
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   title: {
     margin: "0 0 8px",
-    fontSize: "18px",
-    fontWeight: 700,
+    fontSize: "16px",
+    fontWeight: 600,
   },
   hint: {
-    margin: "0 0 20px",
-    color: "#5d6b82",
+    margin: "0 0 16px",
+    color: "#6b7280",
     fontSize: "14px",
-  },
-  button: {
-    border: 0,
-    borderRadius: "6px",
-    padding: "10px 16px",
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    cursor: "pointer",
-    fontWeight: 700,
-  },
-  buttonDisabled: {
-    cursor: "not-allowed",
-    opacity: 0.7,
   },
   message: {
     margin: "16px 0 0",
-    color: "#b42318",
+    color: "#ef4444",
     fontSize: "14px",
   },
+  compactContent: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "#6b7280",
+  }
 } satisfies Record<string, CSSProperties>;
 
 export const DropzoneArea = () => {
@@ -66,8 +70,12 @@ export const DropzoneArea = () => {
   const [validationMessage, setValidationMessage] = useState("");
   const { addFiles, files, isImporting, setIsImporting } = useFileStore();
 
+  const hasFiles = files.length > 0;
+
   const openFileDialog = () => {
-    inputRef.current?.click();
+    if (!isImporting) {
+      inputRef.current?.click();
+    }
   };
 
   const importSelectedFiles = async (selectedFiles: FileList | File[]) => {
@@ -119,7 +127,6 @@ export const DropzoneArea = () => {
     if (event.target.files) {
       void importSelectedFiles(event.target.files);
     }
-
     event.target.value = "";
   };
 
@@ -145,11 +152,13 @@ export const DropzoneArea = () => {
   return (
     <section
       aria-label="JPEG import area"
+      onClick={openFileDialog}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       style={{
         ...styles.wrapper,
+        ...(hasFiles ? styles.wrapperCompact : {}),
         ...(isDragging ? styles.wrapperActive : {}),
       }}
     >
@@ -162,25 +171,28 @@ export const DropzoneArea = () => {
         type="file"
       />
 
-      <h2 style={styles.title}>Import JPEG</h2>
-      <p style={styles.hint}>Drag and drop .jpg or .jpeg files here.</p>
+      {!hasFiles && (
+        <>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" style={{ width: "48px", height: "48px" }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+          </div>
+          <h2 style={styles.title}>Click to upload or drag and drop</h2>
+          <p style={styles.hint}>JPEGs (max. 45MB)</p>
+        </>
+      )}
 
-      <button
-        disabled={isImporting}
-        onClick={openFileDialog}
-        style={{
-          ...styles.button,
-          ...(isImporting ? styles.buttonDisabled : {}),
-        }}
-        type="button"
-      >
-        {isImporting ? "Importing..." : "Import JPEG"}
-      </button>
+      {hasFiles && (
+        <div style={styles.compactContent}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: "18px", height: "18px" }}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <span>{isImporting ? "Importing..." : "Click to upload or drag and drop JPEGs"}</span>
+        </div>
+      )}
 
       {validationMessage && <p style={styles.message}>{validationMessage}</p>}
-      {files.length > 0 && (
-        <p style={styles.hint}>{files.length} JPEG file(s) imported.</p>
-      )}
     </section>
   );
 };
