@@ -11,7 +11,6 @@ export const TagsInput = ({ tags, onChange, onBlur }: TagsInputProps) => {
   const [cursorIndex, setCursorIndex] = useState(tags.length);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Зберігаємо посилання на всі інпути, щоб фокусувати їх
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -36,7 +35,7 @@ export const TagsInput = ({ tags, onChange, onBlur }: TagsInputProps) => {
         const updatedTags = [...tags];
         updatedTags.splice(index - 1, 1);
         onChange(updatedTags);
-        setCursorIndex(index - 1); // Курсор стає на місце видаленого тегу
+        setCursorIndex(index - 1);
       }
     } else if (e.key === "ArrowLeft" && inputValue === "") {
       if (index > 0) setCursorIndex(index - 1);
@@ -53,7 +52,6 @@ export const TagsInput = ({ tags, onChange, onBlur }: TagsInputProps) => {
     }
   };
 
-  // Ця функція рендерить або активне поле (де ми пишемо), або невидиму "щілину"
   const renderInput = (index: number) => {
     const isActive = cursorIndex === index;
     
@@ -75,7 +73,7 @@ export const TagsInput = ({ tags, onChange, onBlur }: TagsInputProps) => {
         style={{
           width: isActive
             ? (inputValue.length > 0 ? `${inputValue.length + 2}ch` : "120px")
-            : "8px", // 8px - це ширина нашої невидимої щілини між тегами
+            : "8px",
         }}
       />
     );
@@ -86,13 +84,11 @@ export const TagsInput = ({ tags, onChange, onBlur }: TagsInputProps) => {
       className="tags-input-container"
       ref={containerRef}
       onBlur={(e) => {
-        // Якщо клікнули кудись поза контейнером тегів
         if (!containerRef.current?.contains(e.relatedTarget as Node)) {
           onBlur();
         }
       }}
       onClick={(e) => {
-        // Якщо клікнули в пусте місце в кінці контейнера
         if (e.target === containerRef.current) {
           setCursorIndex(tags.length);
         }
