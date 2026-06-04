@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Float, Integer, String
+from sqlalchemy import Column, Float, Integer, String, Text, ForeignKey, JSON
+from sqlalchemy.orm import relationship
 from backend.database import Base
 
 
@@ -29,3 +30,17 @@ class LocalFile(Base):
       'ready' - metadata filled in, file is ready to upload
       'invalid' - file failed validation
     """
+
+class FileMetadata(Base):
+    """Stores user-entered metadata for a specific file."""
+    __tablename__ = "file_metadata"
+
+    id = Column(Integer, primary_key=True, index=True)
+    
+    file_id = Column(Integer, ForeignKey("local_files.id", ondelete="CASCADE"), unique=True)
+    
+    title = Column(String, nullable=True, default="")
+    description = Column(Text, nullable=True, default="")
+    keywords = Column(JSON, nullable=False, default=list)
+    
+    file = relationship("LocalFile", backref="metadata_record")

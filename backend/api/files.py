@@ -52,55 +52,28 @@ def _save_imported_records(
             )
         return []
 
-# POST /api/files/import
+
 @router.post(
     "/import",
     response_model=ImportResult,
     status_code=200,
-    summary="Import one or more JPEG files into the workspace",
 )
 def import_files(
     request: FileImportRequest,
     db: Session = Depends(get_db),
 ) -> ImportResult:
-    """
-    Accepts a list of absolute file paths from the frontend.
-
-    For each path the endpoint will:
-      1. Skip duplicates already present in the DB
-      2. Check the file is accessible on disk
-      3. Check the file is a valid JPEG
-      4. Create a cached thumbnail when possible
-      5. Insert all valid new files
-      6. Return a consolidated ImportResult report
-
-    HTTP status codes:
-      200 - at least one file was processed
-      422 - the request body itself is malformed
-    """
-
     return file_import_service.validate_and_import(request.paths, db)
 
 
-# POST /api/files/upload
 @router.post(
     "/upload",
     response_model=ImportResult,
     status_code=200,
-    summary="Upload one or more JPEG files into the workspace",
 )
 async def upload_files(
     files: list[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ) -> ImportResult:
-    """
-    Browser-friendly import path.
-
-    The frontend sends the actual JPEG bytes as multipart/form-data. The backend
-    stores a local copy, validates it, creates a thumbnail when possible, and
-    keeps the stored absolute path in the workspace DB.
-    """
-
     imported_records: list[LocalFile] = []
     rejected_files: list[RejectedFile] = []
     new_db_objects: list[LocalFile] = []
@@ -131,10 +104,18 @@ async def upload_files(
 
         existing = (
             db.query(LocalFile)
-            .filter(LocalFile.absolute_path == stored.absolute_path)
+            .filter(
+                LocalFile.absolute_path == stored.absolute_path,
+                LocalFile.filename == stored.original_filename
+            )
             .first()
         )
         if existing:
+            if existing.status == "removed":
+                existing.status = "imported"
+                db.commit()
+                db.refresh(existing)
+                
             imported_records.append(existing)
             continue
 
@@ -186,11 +167,9 @@ async def upload_files(
     )
 
 
-# GET /api/files/{file_id}/thumbnail
 @router.get(
     "/{file_id}/thumbnail",
     response_class=ThumbnailFileResponse,
-    summary="Return a cached JPEG thumbnail for an imported file",
 )
 def get_file_thumbnail(
     file_id: int,
@@ -213,24 +192,21 @@ def get_file_thumbnail(
     )
 
 
-# GET /api/files
 @router.get(
     "/",
     response_model=list[FileResponse],
-    summary="Return all files currently in the workspace",
 )
 def list_files(db: Session = Depends(get_db)) -> list[FileResponse]:
-    """Returns every LocalFile row; used on app startup to restore state."""
-    files = db.query(LocalFile).all()
+    files = db.query(LocalFile).filter(LocalFile.status != "removed").all()
     return [FileResponse.model_validate(f) for f in files]
 
-# DELETE /api/files/{file_id}
+
 @router.delete("/{file_id}", status_code=204)
 def delete_file_from_workspace(file_id: int, db: Session = Depends(get_db)):
     db_file = db.query(LocalFile).filter(LocalFile.id == file_id).first()
     if not db_file:
         raise HTTPException(status_code=404, detail="File was not found.")
 
-    db.delete(db_file)
+    db_file.status = "removed"
     db.commit()
     return

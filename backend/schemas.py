@@ -1,5 +1,5 @@
 from pydantic import BaseModel, StrictStr, field_validator
-
+from typing import Optional, List
 
 class FileImportRequest(BaseModel):
     """
@@ -60,3 +60,18 @@ class ImportResult(BaseModel):
     @property
     def summary(self) -> str:
         return f"Imported {len(self.imported)} of {self.total} files."
+
+class MetadataUpdate(BaseModel):
+    """Data that will come from the frontend when editing (onBlur)."""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    keywords: Optional[List[str]] = None
+
+class MetadataResponse(BaseModel):
+    """Data that we provide to the frontend to fill in the fields."""
+    file_id: int
+    title: str
+    description: str
+    keywords: List[str]
+    
+    model_config = {"from_attributes": True}

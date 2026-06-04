@@ -36,6 +36,13 @@ export type ImportFilesResult = {
   total: number;
 };
 
+export type FileMetadata = {
+  file_id: number;
+  title: string;
+  description: string;
+  keywords: string[];
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
@@ -186,4 +193,20 @@ export const deleteFile = async (id: number): Promise<void> => {
       getErrorMessage(errorBody, `Failed to delete file with status ${response.status}.`)
     );
   }
+};
+
+export const getMetadata = async (fileId: number): Promise<FileMetadata> => {
+  const response = await fetch(`${API_BASE_URL}/api/metadata/${fileId}`);
+  if (!response.ok) throw new Error("Failed to fetch metadata");
+  return response.json();
+};
+
+export const updateMetadata = async (fileId: number, data: Partial<FileMetadata>): Promise<FileMetadata> => {
+  const response = await fetch(`${API_BASE_URL}/api/metadata/${fileId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to update metadata");
+  return response.json();
 };
