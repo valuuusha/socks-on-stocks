@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useFileStore } from "../store/useFileStore";
 import { deleteFile, getMetadata, updateMetadata } from "../api/client";
 import type { ImportedFile } from "../store/useFileStore";
@@ -13,8 +13,10 @@ const formatFileSize = (sizeKb: number) => {
   return `${Math.max(sizeKb, 1).toFixed(0)} KB`;
 };
 
-export const ImageCard = ({ file }: ImageCardProps) => {
+const ImageCardComponent = ({ file }: ImageCardProps) => {
+  const rowRef = useRef<HTMLElement | null>(null);
   const [hasPreviewError, setHasPreviewError] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const removeFile = useFileStore((state) => state.removeFile);
 
   const [title, setTitle] = useState("");
@@ -23,15 +25,44 @@ export const ImageCard = ({ file }: ImageCardProps) => {
   const [isMetaLoading, setIsMetaLoading] = useState(true);
 
   useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "600px 0px" },
+    );
+
+    observer.observe(row);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    let isMounted = true;
+    setIsMetaLoading(true);
+
     getMetadata(file.id)
       .then((data) => {
+        if (!isMounted) return;
         setTitle(data.title || "");
         setDescription(data.description || "");
         setKeywords(data.keywords || []);
       })
       .catch(console.error)
-      .finally(() => setIsMetaLoading(false));
-  }, [file.id]);
+      .finally(() => {
+        if (isMounted) setIsMetaLoading(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [file.id, isVisible]);
 
   const handleDelete = async () => {
     try {
@@ -51,7 +82,7 @@ export const ImageCard = ({ file }: ImageCardProps) => {
   };
 
   return (
-    <article className="image-row">
+    <article className="image-row" ref={rowRef}>
       <button className="image-row__delete-btn" onClick={handleDelete} title="Delete">✕</button>
 
       <div className="image-row__media">
@@ -106,3 +137,5 @@ export const ImageCard = ({ file }: ImageCardProps) => {
     </article>
   );
 };
+
+export const ImageCard = memo(ImageCardComponent);
