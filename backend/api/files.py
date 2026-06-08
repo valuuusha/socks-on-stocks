@@ -74,6 +74,9 @@ async def upload_files(
     files: list[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ) -> ImportResult:
+    if len(files) > 100:
+        raise HTTPException(status_code=400, detail="Maximum 100 files allowed per upload.")
+    
     imported_records: list[LocalFile] = []
     rejected_files: list[RejectedFile] = []
     new_db_objects: list[LocalFile] = []
@@ -98,6 +101,16 @@ async def upload_files(
                 RejectedFile(
                     path=upload.filename or "uploaded file",
                     reason=str(exc) or "File could not be uploaded.",
+                )
+            )
+            continue
+        
+        if stored.file_size_kb > 51200:
+            upload_storage.delete_if_unused(stored.absolute_path)
+            rejected_files.append(
+                RejectedFile(
+                    path=upload.filename or "uploaded file",
+                    reason="File size exceeds 50 MB limit.",
                 )
             )
             continue
