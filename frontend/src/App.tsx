@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listFiles } from "./api/client";
+import { listFiles, deleteFile } from "./api/client";
 import DropzoneArea from "./components/DropzoneArea";
 import { GalleryGrid } from "./components/GalleryGrid";
 import { useFileStore } from "./store/useFileStore";
@@ -9,6 +9,9 @@ export const App = () => {
   const files = useFileStore((state) => state.files);
   const setFiles = useFileStore((state) => state.setFiles);
   const [loadError, setLoadError] = useState("");
+
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -21,6 +24,21 @@ export const App = () => {
       });
     return () => { isMounted = false; };
   }, [setFiles]);
+
+  const handleClearAll = async () => {
+    setIsClearing(true);
+    try {
+      for (const file of files) {
+        await deleteFile(file.id);
+      }
+      setFiles([]);
+    } catch (error) {
+      console.error("Failed to clear workspace:", error);
+    } finally {
+      setIsClearing(false);
+      setShowConfirm(false);
+    }
+  };
 
   if (files.length === 0) {
     return (
@@ -39,11 +57,34 @@ export const App = () => {
   return (
     <main className="app-shell" style={{ maxWidth: "1000px" }}>
       <header className="app-header">
-        <h1>Socks on Stocks</h1>
+        <div>
+          <h1>Socks on Stocks</h1>
+          <p>Workspace ({files.length} files)</p>
+        </div>
       </header>
 
       <div className="thin-dropzone">
         <DropzoneArea />
+      </div>
+
+      <div className="workspace-actions">
+        {!showConfirm ? (
+          <button className="clear-workspace-btn" onClick={() => setShowConfirm(true)}>
+            Delete all from workspace
+          </button>
+        ) : (
+          <div className="clear-confirm-box">
+            <span className="clear-confirm-text">Are you sure you want to clear your workspace?</span>
+            <div className="clear-confirm-buttons">
+              <button className="btn-yes" onClick={handleClearAll} disabled={isClearing}>
+                {isClearing ? "Clearing..." : "Yes"}
+              </button>
+              <button className="btn-cancel" onClick={() => setShowConfirm(false)} disabled={isClearing}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {loadError && <p className="app-alert">{loadError}</p>}

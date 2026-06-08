@@ -1,5 +1,8 @@
-from pydantic import BaseModel, StrictStr, field_validator
+import re
+from pydantic import BaseModel, StrictStr, field_validator, Field
 from typing import Optional, List
+
+FORBIDDEN_CHARS = re.compile(r"[&#@%!?/\\*]")
 
 class FileImportRequest(BaseModel):
     """
@@ -61,10 +64,28 @@ class ImportResult(BaseModel):
         return f"Imported {len(self.imported)} of {self.total} files."
 
 class MetadataUpdate(BaseModel):
-    """Data that will come from the frontend when editing (onBlur)."""
-    title: Optional[str] = None
-    description: Optional[str] = None
-    keywords: Optional[List[str]] = None
+    title: Optional[str] = Field(None, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    keywords: Optional[List[str]] = Field(None, max_length=50)
+
+    @field_validator("description", "title")
+    @classmethod
+    def check_forbidden_chars(cls, value: Optional[str]) -> Optional[str]:
+        if value and FORBIDDEN_CHARS.search(value):
+            raise ValueError("Contains forbidden special characters (&, #, @, %, !, ?, /, \\, *)")
+        return value
+
+    @field_validator("keywords")
+    @classmethod
+    def check_keywords(cls, keywords: Optional[List[str]]) -> Optional[List[str]]:
+        if not keywords:
+            return keywords
+        for kw in keywords:
+            if len(kw) > 50:
+                raise ValueError(f"Keyword '{kw}' is too long (max 50 chars)")
+            if FORBIDDEN_CHARS.search(kw):
+                raise ValueError(f"Keyword '{kw}' contains forbidden characters")
+        return keywords
 
 class MetadataResponse(BaseModel):
     """Data that we provide to the frontend to fill in the fields."""
