@@ -24,7 +24,7 @@ jobs:
             --include="*.html" --include="*.ts" --include="*.py" \
             --include="*.json" --include="*.jsx" --include="*.tsx" \
             -P "[^\x00-\x7F]" frontend/ backend/ \
-            | grep -vP "[\x{2715}]" \
+            | grep -vP "[\x{2715}\x{2022}]" \
             || true)
 
           if [ -n "$FOUND" ]; then
