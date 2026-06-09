@@ -18,6 +18,10 @@ const FORBIDDEN_CHARS_REGEX = /[&#@%!?/*\\]/g;
 export const ImageCard = ({ file }: ImageCardProps) => {
   const [hasPreviewError, setHasPreviewError] = useState(false);
   const removeFile = useFileStore((state) => state.removeFile);
+  const selectedFileIds = useFileStore((state) => state.selectedFileIds);
+  const toggleSelection = useFileStore((state) => state.toggleSelection);
+
+  const isSelected = selectedFileIds.includes(file.id);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -63,7 +67,17 @@ export const ImageCard = ({ file }: ImageCardProps) => {
   };
 
   return (
-    <article className="image-row">
+    <article className={`image-row ${isSelected ? "image-row--selected" : ""}`}>
+      <div className="image-row__select-wrapper" onClick={() => toggleSelection(file.id)}>
+        <div className={`custom-checkbox ${isSelected ? "custom-checkbox--active" : ""}`}>
+          {isSelected && (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+      </div>
+
       <div className="image-row__media">
         <div className="image-row__preview-wrapper">
           <button
