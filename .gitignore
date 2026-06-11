@@ -28,6 +28,8 @@ dist/
 build/
 *.spec
 *.egg-info/
+backend/exiftool.exe
+backend/exiftool_files
 
 # OS
 .DS_Store

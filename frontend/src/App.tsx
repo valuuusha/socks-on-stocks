@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listFiles, deleteFile } from "./api/client";
+import { listFiles, deleteFile, exportSelectedFiles } from "./api/client";
 import DropzoneArea from "./components/DropzoneArea";
 import { GalleryGrid } from "./components/GalleryGrid";
 import { useFileStore } from "./store/useFileStore";
@@ -8,10 +8,16 @@ import "./styles.css";
 export const App = () => {
   const files = useFileStore((state) => state.files);
   const setFiles = useFileStore((state) => state.setFiles);
-  const [loadError, setLoadError] = useState("");
+  const selectedFileIds = useFileStore((state) => state.selectedFileIds);
+  const selectAll = useFileStore((state) => state.selectAll);
+  const deselectAll = useFileStore((state) => state.deselectAll);
 
+  const [loadError, setLoadError] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const isAllSelected = files.length > 0 && selectedFileIds.length === files.length;
 
   useEffect(() => {
     let isMounted = true;
@@ -25,15 +31,36 @@ export const App = () => {
     return () => { isMounted = false; };
   }, [setFiles]);
 
-  const handleClearAll = async () => {
+  const handleSelectAllToggle = () => {
+    if (isAllSelected) {
+      deselectAll();
+    } else {
+      selectAll();
+    }
+  };
+
+  const handleExportSelected = async () => {
+    setIsExporting(true);
+    try {
+      await exportSelectedFiles(selectedFileIds);
+    } catch (error) {
+      console.error("Failed to export files:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
     setIsClearing(true);
     try {
-      for (const file of files) {
-        await deleteFile(file.id);
+      for (const id of selectedFileIds) {
+        await deleteFile(id);
       }
-      setFiles([]);
+      const remainingFiles = files.filter(f => !selectedFileIds.includes(f.id));
+      setFiles(remainingFiles);
+      deselectAll();
     } catch (error) {
-      console.error("Failed to clear workspace:", error);
+      console.error("Failed to delete selected files:", error);
     } finally {
       setIsClearing(false);
       setShowConfirm(false);
@@ -68,23 +95,40 @@ export const App = () => {
       </div>
 
       <div className="workspace-actions">
-        {!showConfirm ? (
-          <button className="clear-workspace-btn" onClick={() => setShowConfirm(true)}>
-            Delete all from workspace
+        <button className="select-all-btn" onClick={handleSelectAllToggle}>
+          {isAllSelected ? "Deselect all" : "Select all"}
+        </button>
+
+        <div className="workspace-actions-right" style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="export-selected-btn" 
+            onClick={handleExportSelected}
+            disabled={selectedFileIds.length === 0 || isExporting}
+          >
+            {isExporting ? "Exporting..." : "Export selected"}
           </button>
-        ) : (
-          <div className="clear-confirm-box">
-            <span className="clear-confirm-text">Are you sure you want to clear your workspace?</span>
-            <div className="clear-confirm-buttons">
-              <button className="btn-yes" onClick={handleClearAll} disabled={isClearing}>
-                {isClearing ? "Clearing..." : "Yes"}
-              </button>
-              <button className="btn-cancel" onClick={() => setShowConfirm(false)} disabled={isClearing}>
-                Cancel
-              </button>
+          {!showConfirm ? (
+            <button 
+              className="clear-workspace-btn" 
+              onClick={() => setShowConfirm(true)}
+              disabled={selectedFileIds.length === 0}
+            >
+              Delete selected ({selectedFileIds.length})
+            </button>
+          ) : (
+            <div className="clear-confirm-box">
+              <span className="clear-confirm-text">Delete {selectedFileIds.length} file(s)?</span>
+              <div className="clear-confirm-buttons">
+                <button className="btn-yes" onClick={handleDeleteSelected} disabled={isClearing}>
+                  {isClearing ? "Deleting..." : "Yes"}
+                </button>
+                <button className="btn-cancel" onClick={() => setShowConfirm(false)} disabled={isClearing}>
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {loadError && <p className="app-alert">{loadError}</p>}

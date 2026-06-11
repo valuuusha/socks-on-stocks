@@ -8,6 +8,7 @@ export type FileStoreState = {
   files: ImportedFile[];
   isImporting: boolean;
   selectedFileId: number | null;
+  selectedFileIds: number[];
 };
 
 export type FileStoreActions = {
@@ -17,6 +18,9 @@ export type FileStoreActions = {
   setIsImporting: (isImporting: boolean) => void;
   removeFile: (id: number) => void;
   setSelectedFileId: (id: number | null) => void;
+  toggleSelection: (id: number) => void;
+  selectAll: () => void;
+  deselectAll: () => void;
 };
 
 type FileStore = FileStoreState & FileStoreActions;
@@ -30,6 +34,7 @@ export const useFileStore = create<FileStore>()((set) => ({
   files: [],
   isImporting: false,
   selectedFileId: getInitialSelectedId(),
+  selectedFileIds: [],
   addFiles: (newFiles) =>
     set((state) => {
       const existingIds = new Set(state.files.map((f) => f.id));
@@ -39,12 +44,13 @@ export const useFileStore = create<FileStore>()((set) => ({
         files: [...state.files, ...uniqueNewFiles],
       };
     }),
-  clearFiles: () => set({ files: [] }),
+  clearFiles: () => set({ files: [], selectedFileIds: [] }),
   setFiles: (files) => set({ files }),
   setIsImporting: (isImporting) => set({ isImporting }),
   removeFile: (id) => 
     set((state) => ({
       files: state.files.filter((file) => file.id !== id),
+      selectedFileIds: state.selectedFileIds.filter((selectedId) => selectedId !== id),
     })),
   setSelectedFileId: (id) => {
     if (id !== null) {
@@ -52,4 +58,12 @@ export const useFileStore = create<FileStore>()((set) => ({
     }
     set({ selectedFileId: id });
   },
+  toggleSelection: (id) =>
+    set((state) => ({
+      selectedFileIds: state.selectedFileIds.includes(id)
+        ? state.selectedFileIds.filter((selectedId) => selectedId !== id)
+        : [...state.selectedFileIds, id],
+    })),
+  selectAll: () => set((state) => ({ selectedFileIds: state.files.map((f) => f.id) })),
+  deselectAll: () => set({ selectedFileIds: [] }),
 }));
