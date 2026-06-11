@@ -19,6 +19,8 @@ export const App = () => {
 
   const isAllSelected = files.length > 0 && selectedFileIds.length === files.length;
 
+  const isAllSelected = files.length > 0 && selectedFileIds.length === files.length;
+
   useEffect(() => {
     let isMounted = true;
     listFiles()
