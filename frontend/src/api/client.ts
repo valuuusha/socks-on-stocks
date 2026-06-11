@@ -181,7 +181,6 @@ export const deleteFile = async (id: number): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/api/files/${id}`, {
     method: "DELETE",
   });
-
   if (!response.ok) {
     let errorBody: unknown = null;
     try {
@@ -209,4 +208,27 @@ export const updateMetadata = async (fileId: number, data: Partial<FileMetadata>
   });
   if (!response.ok) throw new Error("Failed to update metadata");
   return response.json();
+};
+
+export const exportSelectedFiles = async (fileIds: number[]) => {
+  const response = await fetch(`${API_BASE_URL}/api/files/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_ids: fileIds }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Export failed (${response.status}): ${errorText}`);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `SocksOnStocks_Export_${Date.now()}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
 };

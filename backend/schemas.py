@@ -22,6 +22,8 @@ class FileImportRequest(BaseModel):
             raise ValueError("The paths list must contain at least one file path.")
         return v
 
+class ExportRequest(BaseModel):
+    file_ids: List[int]
 
 class FileResponse(BaseModel):
     """

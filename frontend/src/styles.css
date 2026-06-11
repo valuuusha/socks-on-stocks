@@ -162,6 +162,29 @@ select {
   cursor: not-allowed;
 }
 
+.export-selected-btn {
+  background: #3b82f6;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.export-selected-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.export-selected-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #9ca3af;
+}
+
 .clear-confirm-box {
   display: flex;
   align-items: center;
