@@ -39,8 +39,10 @@ venv\Scripts\activate # Windows
 # source venv/bin/activate # macOS / Linux
 
 pip install -r requirements.txt
-uvicorn backend.main:app --reload
+python -m uvicorn backend.main:app --reload
 ```
+
+On Windows, `python -m uvicorn` avoids uv-generated launcher issues in paths with spaces.
 
 API runs at `http://127.0.0.1:8000`
 Swagger docs at `http://127.0.0.1:8000/docs`

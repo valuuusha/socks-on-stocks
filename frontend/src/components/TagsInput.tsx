@@ -107,7 +107,7 @@ export const TagsInput = ({ tags, onChange, onBlur }: TagsInputProps) => {
               onClick={() => removeTag(index)}
               tabIndex={-1}
             >
-              ✕
+              x
             </button>
           </span>
         </React.Fragment>

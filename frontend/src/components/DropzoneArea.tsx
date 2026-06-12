@@ -123,6 +123,11 @@ export const DropzoneArea = () => {
     event.target.value = "";
   };
 
+  const handleImportButtonClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    openFileDialog();
+  };
+
   const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -163,23 +168,34 @@ export const DropzoneArea = () => {
 
         {!hasFiles && (
           <>
-            <div className="dropzone-icon-large">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#9ca3af">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-            </div>
-            <h2 className="dropzone-title">Click to upload or drag and drop</h2>
-            <p className="dropzone-hint">JPEGs (max. 50MB)</p>
+            <p className="dropzone-welcome-text">
+              {isDragging ? "Drop JPEG files here" : "Drag and drop .jpg or .jpeg files here"}
+            </p>
+            <button
+              className="dropzone-import-button"
+              disabled={isImporting}
+              onClick={handleImportButtonClick}
+              type="button"
+            >
+              {isImporting ? "Importing..." : "Import JPEG"}
+            </button>
           </>
         )}
 
         {hasFiles && (
-          <div className="dropzone-content-compact">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="dropzone-icon-small">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <span>{isImporting ? "Importing..." : "Click to upload or drag and drop JPEGs"}</span>
-          </div>
+          <>
+            <p className="dropzone-file-import-text">
+              {isDragging ? "Drop JPEG files here" : "Drag and drop .jpg or .jpeg files here"}
+            </p>
+            <button
+              className="dropzone-import-button dropzone-import-button--compact"
+              disabled={isImporting}
+              onClick={handleImportButtonClick}
+              type="button"
+            >
+              {isImporting ? "Importing..." : "Import JPEG"}
+            </button>
+          </>
         )}
       </section>
 
@@ -188,7 +204,7 @@ export const DropzoneArea = () => {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Import Warnings</h3>
-              <button className="modal-close" onClick={() => setPopupContent(null)}>✕</button>
+              <button className="modal-close" onClick={() => setPopupContent(null)}>x</button>
             </div>
             <div className="modal-body">
               {popupContent}
