@@ -28,7 +28,7 @@
 Тестові файли створюються локально скриптом:
 
 ```bash
-python3 docs/performance-test/generate_45mb_jpegs.py
+python3 docs/nfr/performance-test/generate_45mb_jpegs.py
 ```
 
 Підтвердження створення тестових файлів:

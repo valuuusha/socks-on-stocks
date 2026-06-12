@@ -20,7 +20,7 @@ This folder contains helper files for the NFR-3 productivity/performance manual 
 3. Run the generator from this repository:
 
    ```bash
-   python3 /Users/annaromancuk/Downloads/socks-on-stocks-main/socks-on-stocks/docs/performance-test/generate_45mb_jpegs.py
+   python3 /Users/annaromancuk/Downloads/socks-on-stocks-main/socks-on-stocks/docs/nfr/performance-test/generate_45mb_jpegs.py
    ```
 
 4. Verify the generated files:
@@ -41,4 +41,3 @@ This folder contains helper files for the NFR-3 productivity/performance manual 
    ```
 
 Do not commit the generated 4.5 GB `test_100_jpegs` folder into Git.
-
