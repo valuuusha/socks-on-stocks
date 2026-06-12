@@ -75,6 +75,20 @@ class UploadStorage:
 
         path.unlink(missing_ok=True)
 
+    def resolve_existing_path(self, absolute_path: str) -> Path | None:
+        path = Path(absolute_path)
+        if path.is_file():
+            return path
+
+        if path.parent.name != "imports" or path.parent.parent.name != "storage":
+            return None
+
+        candidate = self.storage_dir / path.name
+        if candidate.is_file():
+            return candidate
+
+        return None
+
     def _safe_filename(self, filename: str | None) -> str:
         clean_name = Path(filename or "uploaded.jpg").name
         clean_name = re.sub(r"[^A-Za-z0-9._ -]", "_", clean_name).strip(" .")

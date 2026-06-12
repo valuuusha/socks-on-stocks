@@ -2,6 +2,9 @@ import os
 import io
 import zipfile
 import subprocess
+import shutil
+import tempfile
+from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse as ThumbnailFileResponse, Response
 from sqlalchemy.exc import IntegrityError
@@ -29,6 +32,11 @@ from backend.services.upload_storage_service import (
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+EXIFTOOL_PERL = BACKEND_DIR / "exiftool_files" / "perl.exe"
+EXIFTOOL_SCRIPT = BACKEND_DIR / "exiftool_files" / "exiftool.pl"
+EXIFTOOL_EXE = BACKEND_DIR / "exiftool.exe"
+
 def _save_imported_records(db: Session, records: list[LocalFile], rejected_files: list[RejectedFile]) -> list[LocalFile]:
     if not records:
         return []
@@ -49,31 +57,74 @@ def _save_imported_records(db: Session, records: list[LocalFile], rejected_files
             )
         return []
 
-def _write_exif_data(file_path: str, title: str, description: str, keywords: list[str]):    
-    
-    exiftool_cmd = "exiftool"
-    if os.path.exists("backend/exiftool.exe"):
-        exiftool_cmd = "backend/exiftool.exe"
-    
-    cmd = [exiftool_cmd, "-overwrite_original", "-charset", "UTF8"]
+def _get_exiftool_command() -> list[str]:
+    if EXIFTOOL_PERL.exists() and EXIFTOOL_SCRIPT.exists():
+        return [str(EXIFTOOL_PERL), str(EXIFTOOL_SCRIPT)]
+    if EXIFTOOL_EXE.exists():
+        return [str(EXIFTOOL_EXE)]
+    return ["exiftool"]
+
+
+def _write_exif_data(file_path: str, title: str, description: str, keywords: list[str]):
+    cmd = [
+        *_get_exiftool_command(),
+        "-overwrite_original",
+        "-charset",
+        "UTF8",
+        "-IPTC:CodedCharacterSet=UTF8",
+    ]
     
     if title:
-        cmd.extend([f"-XMP:Title={title}", f"-IPTC:ObjectName={title}"])
+        cmd.extend([
+            f"-XMP:Title={title}",
+            f"-IPTC:ObjectName={title}",
+            f"-EXIF:XPTitle={title}",
+            f"-EXIF:XPSubject={title}",
+        ])
     if description:
         cmd.extend([
             f"-XMP:Description={description}",
             f"-IPTC:Caption-Abstract={description}",
-            f"-EXIF:ImageDescription={description}"
+            f"-EXIF:ImageDescription={description}",
+            f"-EXIF:XPComment={description}",
+            f"-EXIF:UserComment={description}",
         ])
     if keywords and len(keywords) > 0:
         kw_str = ", ".join(keywords)
-        cmd.extend(["-sep", ", ", f"-XMP:Subject={kw_str}", f"-IPTC:Keywords={kw_str}"])
-    if len(cmd) > 4:
+        windows_keywords = "; ".join(keywords)
+        cmd.extend([
+            "-sep",
+            ", ",
+            f"-XMP:Subject={kw_str}",
+            f"-IPTC:Keywords={kw_str}",
+            f"-EXIF:XPKeywords={windows_keywords}",
+        ])
+    if len(cmd) > 6:
         cmd.append(file_path)
-        try:
-            subprocess.run(cmd, check=True, capture_output=True)
-        except Exception as e:
-            print(f"ExifTool error on {file_path}: {e}")
+        result = subprocess.run(
+            cmd,
+            check=False,
+            capture_output=True,
+            cwd=str(BACKEND_DIR),
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if result.returncode != 0:
+            message = result.stderr.strip() or result.stdout.strip() or "ExifTool failed."
+            raise RuntimeError(message)
+
+def _resolve_local_file_path(file_record: LocalFile, db: Session) -> Path | None:
+    resolved_path = upload_storage.resolve_existing_path(file_record.absolute_path)
+    if resolved_path is None:
+        return None
+
+    normalized_path = str(resolved_path.resolve())
+    if file_record.absolute_path != normalized_path:
+        file_record.absolute_path = normalized_path
+        db.add(file_record)
+
+    return resolved_path
 
 @router.post("/import", response_model=ImportResult, status_code=200)
 def import_files(request: FileImportRequest, db: Session = Depends(get_db)) -> ImportResult:
@@ -152,24 +203,58 @@ async def upload_files(files: list[UploadFile] = File(...), db: Session = Depend
 
 @router.post("/export")
 def export_files(request: ExportRequest, db: Session = Depends(get_db)):
-    files_to_export = db.query(LocalFile).filter(LocalFile.id.in_(request.file_ids)).all()
+    requested_file_ids = list(dict.fromkeys(request.file_ids))
+    if not requested_file_ids:
+        raise HTTPException(status_code=400, detail="No files selected for export.")
+
+    files_to_export = (
+        db.query(LocalFile)
+        .filter(LocalFile.id.in_(requested_file_ids), LocalFile.status != "removed")
+        .all()
+    )
+    files_by_id = {file_record.id: file_record for file_record in files_to_export}
+    missing_ids = [file_id for file_id in requested_file_ids if file_id not in files_by_id]
+    if missing_ids:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Selected files were not found in the workspace: {missing_ids}.",
+        )
+
+    export_items: list[tuple[LocalFile, Path]] = []
+    missing_files: list[str] = []
+
+    for file_id in requested_file_ids:
+        file_record = files_by_id[file_id]
+        source_path = _resolve_local_file_path(file_record, db)
+        if source_path is None:
+            missing_files.append(file_record.filename)
+            continue
+        export_items.append((file_record, source_path))
+
+    if missing_files:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Selected files are not accessible on disk: {', '.join(missing_files)}.",
+        )
+
+    if db.dirty:
+        db.commit()
     
     zip_buffer = io.BytesIO()
     seen_names = {}
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for f in files_to_export:
-            if os.path.exists(f.absolute_path):
-                
-                meta = db.query(FileMetadata).filter(FileMetadata.file_id == f.id).first()
+        with tempfile.TemporaryDirectory(prefix="socks_on_stocks_export_") as temp_dir:
+            temp_export_dir = Path(temp_dir)
+
+            for file_record, source_path in export_items:
+                meta = db.query(FileMetadata).filter(FileMetadata.file_id == file_record.id).first()
                 
                 title = meta.title if meta and meta.title else ""
                 description = meta.description if meta and meta.description else ""
                 keywords = meta.keywords if meta and meta.keywords else []
-
-                _write_exif_data(f.absolute_path, title, description, keywords)
                 
-                name = f.filename
+                name = Path(file_record.filename).name or f"file-{file_record.id}.jpg"
                 if name in seen_names:
                     seen_names[name] += 1
                     name_part, ext_part = os.path.splitext(name)
@@ -177,8 +262,19 @@ def export_files(request: ExportRequest, db: Session = Depends(get_db)):
                 else:
                     seen_names[name] = 0
                     arcname = name
+
+                export_copy_path = temp_export_dir / arcname
+                shutil.copy2(source_path, export_copy_path)
+
+                try:
+                    _write_exif_data(str(export_copy_path), title, description, keywords)
+                except RuntimeError as exc:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Metadata could not be written for {file_record.filename}: {exc}",
+                    ) from exc
                     
-                zip_file.write(f.absolute_path, arcname=arcname)
+                zip_file.write(export_copy_path, arcname=arcname)
 
     return Response(
         content=zip_buffer.getvalue(),
@@ -191,8 +287,13 @@ def get_file_thumbnail(file_id: int, db: Session = Depends(get_db)) -> Thumbnail
     file_record = db.get(LocalFile, file_id)
     if not file_record:
         raise HTTPException(status_code=404, detail="File was not found.")
+    source_path = _resolve_local_file_path(file_record, db)
+    if source_path is None:
+        raise HTTPException(status_code=404, detail="File is not accessible on disk.")
+    if db.dirty:
+        db.commit()
     try:
-        thumbnail_path = preview_generator.generate(file_record.absolute_path)
+        thumbnail_path = preview_generator.generate(str(source_path))
     except PreviewGenerationError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -206,6 +307,10 @@ def get_file_thumbnail(file_id: int, db: Session = Depends(get_db)) -> Thumbnail
 @router.get("/", response_model=list[FileResponse])
 def list_files(db: Session = Depends(get_db)) -> list[FileResponse]:
     files = db.query(LocalFile).filter(LocalFile.status != "removed").all()
+    for file_record in files:
+        _resolve_local_file_path(file_record, db)
+    if db.dirty:
+        db.commit()
     return [FileResponse.model_validate(f) for f in files]
 
 @router.delete("/{file_id}", status_code=204)
@@ -214,9 +319,10 @@ def delete_file_from_workspace(file_id: int, db: Session = Depends(get_db)):
     if not db_file:
         raise HTTPException(status_code=404, detail="File was not found.")
 
-    if os.path.exists(db_file.absolute_path):
+    source_path = _resolve_local_file_path(db_file, db)
+    if source_path is not None:
         try:
-            os.remove(db_file.absolute_path)
+            source_path.unlink()
         except OSError as e:
             print(f"Failed to delete physical file: {e}")
 
