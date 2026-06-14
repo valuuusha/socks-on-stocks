@@ -8,15 +8,18 @@ import {
 } from "./api/client";
 import DropzoneArea from "./components/DropzoneArea";
 import { GalleryGrid } from "./components/GalleryGrid";
+import { FtpWorkspace } from "./components/FtpWorkspace";
 import { useFileStore } from "./store/useFileStore";
 import welcomeLogo from "./assets/logo.svg";
 import "./styles.css";
 
 type WorkspaceTopbarProps = {
   importedCount: number;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
 };
 
-const WorkspaceTopbar = ({ importedCount }: WorkspaceTopbarProps) => (
+const WorkspaceTopbar = ({ importedCount, activeTab, setActiveTab }: WorkspaceTopbarProps) => (
   <header className="workspace-topbar">
     <div className="workspace-brand">
       <div className="workspace-brand-pill">Socks on stocks</div>
@@ -24,11 +27,29 @@ const WorkspaceTopbar = ({ importedCount }: WorkspaceTopbarProps) => (
     </div>
 
     <nav className="workspace-nav" aria-label="Workspace sections">
-      <span aria-current="page">Files</span>
+      <span 
+        aria-current={activeTab === "files" ? "page" : undefined}
+        onClick={() => setActiveTab("files")}
+        style={{ cursor: "pointer" }}
+      >
+        Files
+      </span>
       <span>|</span>
-      <span>Metadata</span>
+      <span 
+        aria-current={activeTab === "metadata" ? "page" : undefined}
+        onClick={() => setActiveTab("files")}
+        style={{ cursor: "pointer" }}
+      >
+        Metadata
+      </span>
       <span>|</span>
-      <span>FTP</span>
+      <span 
+        aria-current={activeTab === "ftp" ? "page" : undefined}
+        onClick={() => setActiveTab("ftp")}
+        style={{ cursor: "pointer" }}
+      >
+        FTP
+      </span>
       <span>|</span>
       <span>Uploads</span>
       <span>|</span>
@@ -46,6 +67,7 @@ export const App = () => {
   const selectAll = useFileStore((state) => state.selectAll);
   const deselectAll = useFileStore((state) => state.deselectAll);
 
+  const [activeTab, setActiveTab] = useState("files");
   const [loadError, setLoadError] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -185,7 +207,7 @@ export const App = () => {
   if (files.length === 0) {
     return (
       <main className="welcome-screen">
-        <WorkspaceTopbar importedCount={files.length} />
+        <WorkspaceTopbar importedCount={files.length} activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {loadError && <p className="app-alert welcome-alert">{loadError}</p>}
 
@@ -200,106 +222,113 @@ export const App = () => {
 
   return (
     <main className="file-import-screen">
-      <WorkspaceTopbar importedCount={files.length} />
+      <WorkspaceTopbar importedCount={files.length} activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <section className="file-import-dropzone" aria-label="Add more JPEG files">
-        <DropzoneArea />
-      </section>
+      {activeTab === "ftp" ? (
+        <FtpWorkspace onBack={() => setActiveTab("files")} />
+      ) : (
+        <>
+          <section className="file-import-dropzone" aria-label="Add more JPEG files">
+            <DropzoneArea />
+          </section>
 
-      <div className="file-import-actions">
-        <button className="file-action-button file-action-button--select" onClick={handleSelectAllToggle}>
-          {isAllSelected ? "Deselect all" : "Select all"}
-        </button>
+          <div className="file-import-actions">
+            <button className="file-action-button file-action-button--select" onClick={handleSelectAllToggle}>
+              {isAllSelected ? "Deselect all" : "Select all"}
+            </button>
 
-        <div className="file-import-actions__right">
-          {duplicateTemplateId ? (
-            <>
+            <div className="file-import-actions__right">
+              {duplicateTemplateId ? (
+                <>
+                  <button
+                    className="file-action-button"
+                    disabled={duplicateTargetIds.length === 0 || isDuplicating}
+                    onClick={handleApplyDuplicate}
+                    type="button"
+                  >
+                    {isDuplicating ? "Applying..." : "Apply metadata"}
+                  </button>
+                  <button
+                    className="file-action-button"
+                    disabled={isDuplicating}
+                    onClick={handleCancelDuplicate}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="file-action-button"
+                    onClick={handleStartDuplicate}
+                    disabled={selectedFileIds.length === 0}
+                    type="button"
+                  >
+                    Duplicate as...
+                  </button>
+                  <button
+                    className="file-action-button"
+                    disabled={selectedFileIds.length === 0 || isExporting}
+                    onClick={handleExportSelected}
+                    type="button"
+                  >
+                    {isExporting ? "Exporting..." : "Export selected"}
+                  </button>
+                </>
+              )}
+              {!showConfirm ? (
+                <button
+                  className="file-action-button file-action-button--delete"
+                  disabled={selectedFileIds.length === 0}
+                  onClick={() => setShowConfirm(true)}
+                  type="button"
+                >
+                  Delete
+                </button>
+              ) : (
+                <div className="clear-confirm-box">
+                  <span className="clear-confirm-text">Delete {selectedFileIds.length} file(s)?</span>
+                  <div className="clear-confirm-buttons">
+                    <button className="btn-yes" onClick={handleDeleteSelected} disabled={isClearing}>
+                      {isClearing ? "Deleting..." : "Yes"}
+                    </button>
+                    <button className="btn-cancel" onClick={() => setShowConfirm(false)} disabled={isClearing}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
               <button
                 className="file-action-button"
-                disabled={duplicateTargetIds.length === 0 || isDuplicating}
-                onClick={handleApplyDuplicate}
-                type="button"
-              >
-                {isDuplicating ? "Applying..." : "Apply metadata"}
-              </button>
-              <button
-                className="file-action-button"
-                disabled={isDuplicating}
-                onClick={handleCancelDuplicate}
-                type="button"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="file-action-button"
-                onClick={handleStartDuplicate}
+                onClick={() => setActiveTab("ftp")}
                 disabled={selectedFileIds.length === 0}
                 type="button"
               >
-                Duplicate as...
+                Upload to FTP
               </button>
-              <button
-                className="file-action-button"
-                disabled={selectedFileIds.length === 0 || isExporting}
-                onClick={handleExportSelected}
-                type="button"
-              >
-                {isExporting ? "Exporting..." : "Export selected"}
-              </button>
-            </>
-          )}
-          {!showConfirm ? (
-            <button
-              className="file-action-button file-action-button--delete"
-              disabled={selectedFileIds.length === 0}
-              onClick={() => setShowConfirm(true)}
-              type="button"
-            >
-              Delete
-            </button>
-          ) : (
-            <div className="clear-confirm-box">
-              <span className="clear-confirm-text">Delete {selectedFileIds.length} file(s)?</span>
-              <div className="clear-confirm-buttons">
-                <button className="btn-yes" onClick={handleDeleteSelected} disabled={isClearing}>
-                  {isClearing ? "Deleting..." : "Yes"}
-                </button>
-                <button className="btn-cancel" onClick={() => setShowConfirm(false)} disabled={isClearing}>
-                  Cancel
-                </button>
-              </div>
             </div>
+          </div>
+
+          {duplicateMessage && (
+            <p className="file-import-status">
+              {duplicateMessage}
+              {duplicateTemplateFile ? ` Targets selected: ${duplicateTargetIds.length}.` : ""}
+            </p>
           )}
-          <button
-            className="file-action-button"
-            disabled
-            type="button"
-          >
-            Upload to FTP
-          </button>
-        </div>
-      </div>
 
-      {duplicateMessage && (
-        <p className="file-import-status">
-          {duplicateMessage}
-          {duplicateTemplateFile ? ` Targets selected: ${duplicateTargetIds.length}.` : ""}
-        </p>
+          {exportMessage && <p className="file-import-status">{exportMessage}</p>}
+
+          {loadError && <p className="app-alert file-import-alert">{loadError}</p>}
+          
+          <section className="file-import-list" aria-label="Imported JPEG files">
+            <GalleryGrid
+              duplicateTemplateId={duplicateTemplateId}
+              metadataRefreshKey={metadataRefreshKey}
+            />
+          </section>
+        </>
       )}
-
-      {exportMessage && <p className="file-import-status">{exportMessage}</p>}
-
-      {loadError && <p className="app-alert file-import-alert">{loadError}</p>}
-      
-      <section className="file-import-list" aria-label="Imported JPEG files">
-        <GalleryGrid
-          duplicateTemplateId={duplicateTemplateId}
-          metadataRefreshKey={metadataRefreshKey}
-        />
-      </section>
     </main>
   );
 };

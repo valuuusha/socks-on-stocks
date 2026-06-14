@@ -1135,3 +1135,236 @@ select {
     letter-spacing: 3px;
   }
 }
+
+.ftp-workspace {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ftp-columns {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.ftp-panel-title {
+  color: #7393b3;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  margin: 0 0 16px 0;
+  text-align: center;
+}
+
+.ftp-panel-card {
+  background: #ffffff;
+  border: 1px solid #a9b4c0;
+  border-radius: 8px;
+  padding: 24px;
+  min-height: 400px;
+}
+
+.ftp-panel-card--files {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ftp-panel-desc {
+  font-size: 11px;
+  font-weight: 700;
+  color: #071a2d;
+  margin: 0 0 24px 0;
+}
+
+.ftp-form-group {
+  margin-bottom: 16px;
+}
+
+.ftp-form-group label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  color: #071a2d;
+  margin-bottom: 6px;
+}
+
+.ftp-input {
+  width: 100%;
+  height: 34px;
+  border: 1px solid #a9b4c0;
+  border-radius: 4px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #071a2d;
+  background: #ffffff;
+}
+
+.ftp-input:focus {
+  outline: none;
+  border-color: #7393b3;
+}
+
+.ftp-btn-test {
+  background: #7393b3;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: background-color 0.2s;
+}
+
+.ftp-btn-test:hover:not(:disabled) {
+  background: #86a4c2;
+}
+
+.ftp-btn-test:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ftp-status-text {
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 16px;
+  color: #071a2d;
+}
+
+.ftp-status-error {
+  color: #dc2626;
+}
+
+.ftp-status-success {
+  color: #16a34a;
+}
+
+.ftp-files-list {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ftp-empty-files {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 40px;
+}
+
+.ftp-file-item {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid #7393b3;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.ftp-file-thumb {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+.ftp-file-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ftp-file-name {
+  font-size: 12px;
+  font-weight: 800;
+  color: #071a2d;
+}
+
+.ftp-file-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ftp-file-status {
+  font-size: 11px;
+  font-weight: 800;
+  color: #071a2d;
+}
+
+.ftp-file-size {
+  font-size: 10px;
+  font-weight: 600;
+  color: #5d7185;
+}
+
+.ftp-files-summary {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid #a9b4c0;
+  font-size: 12px;
+  font-weight: 800;
+  color: #071a2d;
+  background: #f8fafc;
+  border-radius: 0 0 8px 8px;
+}
+
+.ftp-actions-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.ftp-btn-secondary,
+.ftp-btn-primary {
+  border: none;
+  border-radius: 4px;
+  padding: 10px 24px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.ftp-btn-secondary {
+  background: #a9b4c0;
+  color: #ffffff;
+}
+
+.ftp-btn-secondary:hover {
+  background: #86a4c2;
+}
+
+.ftp-btn-primary {
+  background: #7393b3;
+  color: #ffffff;
+}
+
+.ftp-btn-primary:hover:not(:disabled) {
+  background: #5d7185;
+}
+
+.ftp-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.workspace-nav span[aria-current="page"] {
+  color: #071a2d;
+  border-bottom: 2px solid #071a2d;
+}
