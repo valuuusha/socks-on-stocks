@@ -1,37 +1,37 @@
 # Performance Test Report: Local JPEG Workspace and Metadata Editing
 
-## Мета тестування
+## Test Goal
 
-Метою тестування було перевірити виконання нефункціональних вимог до продуктивності застосунку Socks on Stocks:
+The goal of the testing was to verify the non-functional performance requirements of the Socks on Stocks application:
 
-1. Застосунок має відкривати або імпортувати робочий простір із 100 локальними JPEG-файлами розміром до 45 МБ кожен не довше ніж за 5 секунд на комп'ютері з мінімум 8 ГБ оперативної пам'яті.
-2. Під час редагування метаданих інтерфейс не повинен зависати більше ніж на 1 секунду після зміни значення в полі назви, опису або тегів.
+1. The application must open or import a workspace with 100 local JPEG files of up to 45 MB each in no more than 5 seconds on a machine with at least 8 GB of RAM.
+2. During metadata editing, the UI must not freeze for more than 1 second after changing a value in the title, description, or tags field.
 
-## Тестове середовище
+## Test Environment
 
-- Операційна система: macOS
-- Оперативна пам'ять: 16 ГБ
-- Процесор: Apple M2 Pro, 10 cores (6 Performance and 4 Efficiency)
-- Версія застосунку / гілка Git: `docs-nfr`
-- Дата тестування: 2026-06-12
-- Браузер / середовище запуску: Chrome, local Vite app at `http://127.0.0.1:5173/`
+- Operating system: macOS
+- RAM: 16 GB
+- CPU: Apple M2 Pro, 10 cores (6 Performance and 4 Efficiency)
+- Application version / Git branch: `docs-nfr`
+- Test date: 2026-06-12
+- Browser / runtime: Chrome, local Vite app at `http://127.0.0.1:5173/`
 
-## Тестові дані
+## Test Data
 
-Для тестування було створено папку зі 100 унікальними JPEG-файлами.
+A folder with 100 unique JPEG files was created for testing.
 
-- Кількість файлів: 100
-- Розмір одного файлу: 45,000,000 bytes (у UI відображається як 42.9 MB)
-- Загальний обсяг даних: 4.5 GB
-- Формат файлів: `.jpg`
+- File count: 100
+- Size per file: 45,000,000 bytes (displayed as 42.9 MB in the UI)
+- Total data size: 4.5 GB
+- File format: `.jpg`
 
-Тестові файли створюються локально скриптом:
+Test files are generated locally using the script:
 
 ```bash
 python3 docs/nfr/performance-test/generate_45mb_jpegs.py
 ```
 
-Підтвердження створення тестових файлів:
+Confirmation of test file generation:
 
 ```text
 Files: 100
@@ -40,64 +40,64 @@ Expected size: 45000000
 All OK: True
 ```
 
-## Тест 1. Відкриття робочого простору зі 100 JPEG-файлами
+## Test 1 — Opening a Workspace with 100 JPEG Files
 
-### Очікуваний результат
+### Expected Result
 
-Застосунок має відкрити або імпортувати робочий простір зі 100 локальними JPEG-файлами не довше ніж за 5 секунд.
+The application must open or import a workspace with 100 local JPEG files in no more than 5 seconds.
 
-### Метод перевірки
+### Verification Method
 
-1. Запустити backend і frontend застосунку.
-2. Відкрити застосунок у браузері.
-3. Імпортувати 100 JPEG-файлів із тестової папки.
-4. Заміряти час імпорту секундоміром або за логами.
-5. Перевірити, що всі 100 файлів відображаються у робочому просторі.
+1. Start the backend and frontend of the application.
+2. Open the application in the browser.
+3. Import 100 JPEG files from the test folder.
+4. Measure the import time using a stopwatch or logs.
+5. Verify that all 100 files are displayed in the workspace.
 
-### Фактичний результат
+### Actual Result
 
-- Час відкриття / імпорту: 24 секунди
-- Кількість імпортованих файлів: 100
-- Результат: не пройдено
+- Import time: 24 seconds
+- Files imported: 100
+- Result: **failed**
 
-Скріншот результату імпорту:
+Screenshot of import result:
 
 ![Import result](./performance-test/screenshots/02_import_result.png)
 
-### Висновок
+### Conclusion
 
-Вимога щодо відкриття робочого простору за 5 секунд: не виконана. Фактичний час імпорту 100 JPEG-файлів склав 24 секунди, що перевищує очікуваний максимум у 5 секунд.
+The requirement to open the workspace within 5 seconds was not met. The actual import time for 100 JPEG files was 24 seconds, which exceeds the expected maximum of 5 seconds.
 
-## Тест 2. Профілювання UI під час редагування метаданих
+## Test 2 — UI Profiling During Metadata Editing
 
-### Очікуваний результат
+### Expected Result
 
-Під час зміни значення в полі назви, опису або тегів інтерфейс не повинен зависати більше ніж на 1 секунду.
+When changing a value in the title, description, or tags field, the UI must not freeze for more than 1 second.
 
-### Метод перевірки
+### Verification Method
 
-Для перевірки було використано Chrome DevTools Performance / React Profiler. Під час запису виконувалося швидке введення тексту в поля метаданих.
+Chrome DevTools Performance / React Profiler was used. During the recording, text was typed rapidly into the metadata fields.
 
-### Фактичний результат
+### Actual Result
 
-- Максимальний зафіксований фриз UI: не більше 153.5 ms у виділеному діапазоні Performance timeline
-- Наявність блокування більше 1000 ms: ні
-- Результат: пройдено
+- Maximum recorded UI freeze: no more than 153.5 ms within the measured Performance timeline range
+- Blocking longer than 1000 ms: no
+- Result: **passed**
 
-Скріншот профілювання:
+Screenshot of performance profiling:
 
 ![Performance profiling](./performance-test/screenshots/03_performance_metadata_editing.png)
 
-### Висновок
+### Conclusion
 
-Вимога щодо відсутності зависання інтерфейсу довше 1 секунди: виконана.
+The requirement for no UI freeze longer than 1 second was met.
 
-## Загальний висновок
+## Overall Conclusion
 
-Під час тестування було перевірено продуктивність застосунку при роботі зі 100 локальними JPEG-файлами загальним обсягом 4.5 GB та поведінку інтерфейсу під час редагування метаданих.
+Testing covered application performance when working with 100 local JPEG files totalling 4.5 GB, and UI behaviour during metadata editing.
 
-Загальний результат тестування: не пройдено повністю.
+Overall test result: **not fully passed.**
 
-Редагування метаданих пройшло вимогу щодо відсутності UI-фризів понад 1 секунду. Водночас імпорт 100 JPEG-файлів зайняв 24 секунди, тому вимога щодо відкриття або імпорту робочого простору не довше ніж за 5 секунд не виконана.
+Metadata editing passed the requirement for no UI freezes exceeding 1 second. However, importing 100 JPEG files took 24 seconds, so the requirement to open or import the workspace in no more than 5 seconds was not met.
 
-Якщо вимоги не виконані, необхідно оптимізувати відкриття робочого простору, генерацію прев'ю або рендеринг полів редагування метаданих.
+If requirements are not met, workspace opening, thumbnail generation, or metadata field rendering should be optimised.

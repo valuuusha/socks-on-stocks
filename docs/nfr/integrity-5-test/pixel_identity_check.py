@@ -5,9 +5,11 @@ Pixel Identity Check
 Verifies that two images differ ONLY in metadata
 (title, tags, description, XMP/IPTC/EXIF tags) while pixels remain identical.
 
-Usage(considering you are in root directory):
-    cd docs/nfr/integrity-5-test
-    python pixel_identity_check.py original.jpg tagged.jpg
+Usage:
+    python3 pixel_identity_check.py original.jpg tagged.jpg
+
+Dependencies:
+    pip install Pillow numpy
 """
 
 import sys
@@ -35,6 +37,11 @@ METADATA_KEYS = {
     "comment", "author", "artist", "copyright",
     "dc:title", "dc:description", "dc:subject",
     "xmp:title", "xmp:description",
+    "xptitle", "xpsubject", "xpkeywords", "xpcomment", "xpauthor",
+    "imagedescription",
+    "xresolution", "yresolution", "resolutionunit",
+    "ycbcrpositioning", "exifoffset", "exififd",
+    "photoshop", "xmp",
 }
 
 
