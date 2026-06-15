@@ -243,13 +243,13 @@ export type FtpProfile = {
 };
 
 export const getFtpProfiles = async (): Promise<FtpProfile[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/ftp/`);
+  const response = await fetch(`${API_BASE_URL}/api/ftp`);
   if (!response.ok) throw new Error("Failed to fetch FTP profiles");
   return response.json();
 };
 
 export const saveFtpProfile = async (profile: FtpProfile & { password?: string }): Promise<FtpProfile> => {
-  const response = await fetch(`${API_BASE_URL}/api/ftp/`, {
+  const response = await fetch(`${API_BASE_URL}/api/ftp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(profile),
@@ -267,6 +267,35 @@ export const testFtpConnection = async (profile: FtpProfile & { password?: strin
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     throw new Error(errorBody.detail || "Connection failed");
+  }
+  return response.json();
+};
+
+export type FtpUploadRequest = {
+  platform_name: string;
+  host: string;
+  port: number;
+  login: string;
+  password?: string;
+  directory: string;
+  file_ids: number[];
+};
+
+export type FtpUploadResponse = {
+  success_count: number;
+  total: number;
+  errors: string[];
+};
+
+export const uploadToFtp = async (data: FtpUploadRequest): Promise<FtpUploadResponse> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp/upload`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.detail || "Upload failed");
   }
   return response.json();
 };

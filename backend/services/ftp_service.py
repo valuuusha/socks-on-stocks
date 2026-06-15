@@ -1,5 +1,6 @@
 import os
 import ftplib
+import ssl
 from cryptography.fernet import Fernet
 
 KEY_FILE = "secret.key"
@@ -28,13 +29,26 @@ def decrypt_password(encrypted_password: str) -> str:
 
 def test_connection(host: str, port: int, login: str, password: str, directory: str) -> tuple[bool, str]:
     try:
-        ftp = ftplib.FTP()
-        ftp.connect(host, port, timeout=10)
-        ftp.login(login, password)
+        is_secure = False
+        try:
+            ftp = ftplib.FTP_TLS()
+            ftp.connect(host, port, timeout=10)
+            ftp.login(login, password)
+            ftp.prot_p()
+            is_secure = True
+        except (ssl.SSLError, ftplib.error_perm):
+            ftp = ftplib.FTP()
+            ftp.connect(host, port, timeout=10)
+            ftp.login(login, password)
+            
         if directory and directory.strip() not in ["", "/"]:
             ftp.cwd(directory)
+            
         ftp.quit()
-        return True, "Connection successful."
+        
+        status_msg = "Connection successful" if is_secure else "Connection successful (Unsecured FTP)"
+        return True, status_msg
+        
     except ftplib.all_errors as e:
         return False, f"FTP Error: {str(e)}"
     except Exception as e:

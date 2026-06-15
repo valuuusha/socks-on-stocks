@@ -1368,3 +1368,78 @@ select {
   color: #071a2d;
   border-bottom: 2px solid #071a2d;
 }
+
+.ftp-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(7, 26, 45, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+
+.ftp-modal-box {
+  border-radius: 8px;
+  width: 100%;
+  max-width: 440px;
+  padding: 40px 32px 24px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  border: 1px solid #d1d5db;
+}
+
+.ftp-modal-box--success {
+  background: #f2fbf7;
+  border-color: #bbf7d0;
+}
+
+.ftp-modal-box--error {
+  background: #fdf4f5;
+  border-color: #fecdd3;
+}
+
+.ftp-modal-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+}
+
+.ftp-modal-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0 0 24px 0;
+  color: #071a2d;
+  letter-spacing: 1.5px;
+}
+
+.ftp-modal-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #071a2d;
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+  letter-spacing: 1px;
+}
+
+.ftp-modal-details {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: #071a2d;
+  line-height: 1.6;
+  margin: 0 0 32px 0;
+  letter-spacing: 0.5px;
+}
+
+.ftp-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ftp-modal-actions button {
+  flex: 1;
+}

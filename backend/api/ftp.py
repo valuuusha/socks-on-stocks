@@ -1,11 +1,18 @@
+import tempfile
+import shutil
+import ftplib
+import ssl
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
 from backend.database import get_db
-from backend.models import FTPProfile
+from backend.models import FTPProfile, LocalFile, FileMetadata
 from backend.services.ftp_service import encrypt_password, decrypt_password, test_connection
+
+from backend.api.files import _write_exif_data, _resolve_local_file_path
 
 router = APIRouter(prefix="/api/ftp", tags=["ftp"])
 
@@ -32,11 +39,11 @@ class FTPTestRequest(BaseModel):
     password: str
     directory: Optional[str] = "/"
 
-@router.get("/", response_model=List[FTPProfileResponse])
+@router.get("", response_model=List[FTPProfileResponse])
 def get_profiles(db: Session = Depends(get_db)):
     return db.query(FTPProfile).all()
 
-@router.post("/", response_model=FTPProfileResponse)
+@router.post("", response_model=FTPProfileResponse)
 def create_or_update_profile(profile: FTPProfileCreate, db: Session = Depends(get_db)):
     db_profile = db.query(FTPProfile).filter(FTPProfile.platform_name == profile.platform_name).first()
     
@@ -65,6 +72,7 @@ def create_or_update_profile(profile: FTPProfileCreate, db: Session = Depends(ge
 
 @router.post("/test")
 def test_ftp(request: FTPTestRequest):
+
     success, message = test_connection(
         request.host, 
         request.port, 
@@ -75,3 +83,76 @@ def test_ftp(request: FTPTestRequest):
     if not success:
         raise HTTPException(status_code=400, detail=message)
     return {"message": message}
+
+class FTPUploadRequest(BaseModel):
+    platform_name: str
+    host: str
+    port: int = 21
+    login: str
+    password: str
+    directory: str = "/"
+    file_ids: List[int]
+
+@router.post("/upload")
+def upload_files_to_ftp(request: FTPUploadRequest, db: Session = Depends(get_db)):
+    files_to_upload = db.query(LocalFile).filter(LocalFile.id.in_(request.file_ids), LocalFile.status != "removed").all()
+    if not files_to_upload:
+        raise HTTPException(status_code=400, detail="No files found to upload.")
+
+    success_count = 0
+    errors = []
+
+    try:
+        try:
+            ftp = ftplib.FTP_TLS()
+            ftp.connect(request.host, request.port, timeout=15)
+            ftp.login(request.login, request.password)
+            ftp.prot_p()
+        except (ssl.SSLError, ftplib.error_perm):
+            ftp = ftplib.FTP()
+            ftp.connect(request.host, request.port, timeout=15)
+            ftp.login(request.login, request.password)
+
+        if request.directory and request.directory.strip() not in ["", "/"]:
+            ftp.cwd(request.directory)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for f in files_to_upload:
+                source_path = _resolve_local_file_path(f, db)
+                if not source_path:
+                    errors.append(f"{f.filename}: File missing on disk.")
+                    continue
+
+                meta = db.query(FileMetadata).filter(FileMetadata.file_id == f.id).first()
+                title = meta.title if meta and meta.title else ""
+                desc = meta.description if meta and meta.description else ""
+                kw = meta.keywords if meta and meta.keywords else []
+
+                temp_file = Path(temp_dir) / f.filename
+                shutil.copy2(source_path, temp_file)
+                try:
+                    _write_exif_data(str(temp_file), title, desc, kw)
+                except Exception as e:
+                    errors.append(f"{f.filename}: Failed to write EXIF metadata.")
+                    continue
+
+                try:
+                    with open(temp_file, "rb") as file_obj:
+                        ftp.storbinary(f"STOR {f.filename}", file_obj)
+                    success_count += 1
+                except Exception as e:
+                    errors.append(f"{f.filename}: FTP Error - {str(e)}")
+
+        ftp.quit()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if errors and success_count == 0:
+        raise HTTPException(status_code=500, detail=errors[0])
+
+    return {
+        "success_count": success_count,
+        "total": len(files_to_upload),
+        "errors": errors
+    }
