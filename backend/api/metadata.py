@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import FileMetadata, LocalFile
 from backend.schemas import MetadataUpdate, MetadataResponse
+from backend.api.files import _read_exif_data, _resolve_local_file_path
 
 router = APIRouter(prefix="/api/metadata", tags=["Metadata"])
 
@@ -41,3 +42,40 @@ def update_metadata(file_id: int, data: MetadataUpdate, db: Session = Depends(ge
     db.commit()
     db.refresh(meta)
     return meta
+
+@router.get("/{file_id}/conflict")
+def check_metadata_conflict(file_id: int, db: Session = Depends(get_db)):
+    file_record = db.query(LocalFile).filter(LocalFile.id == file_id).first()
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    source_path = _resolve_local_file_path(file_record, db)
+    if db.dirty:
+        db.commit()
+    file_meta = (
+        _read_exif_data(str(source_path))
+        if source_path else {"title": "", "description": "", "keywords": []}
+    )
+
+    db_row = db.query(FileMetadata).filter(FileMetadata.file_id == file_id).first()
+    db_meta = {
+        "title": db_row.title if db_row else "",
+        "description": db_row.description if db_row else "",
+        "keywords": db_row.keywords if db_row else [],
+    }
+
+    file_has = any([file_meta["title"], file_meta["description"], file_meta["keywords"]])
+    db_has = any([db_meta["title"], db_meta["description"], db_meta["keywords"]])
+
+    if not file_has and not db_has:
+        action = "empty"
+    elif file_has and not db_has:
+        action = "use_file"
+    elif not file_has and db_has:
+        action = "use_db"
+    elif file_meta == db_meta:
+        action = "same"
+    else:
+        action = "conflict"
+
+    return {"action": action, "file": file_meta, "db": db_meta}

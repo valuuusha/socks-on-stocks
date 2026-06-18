@@ -258,6 +258,26 @@ export const saveFtpProfile = async (profile: FtpProfile & { password?: string }
   return response.json();
 };
 
+export const updateFtpProfile = async (
+  id: number,
+  profile: FtpProfile & { password?: string }
+): Promise<FtpProfile> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+  if (!response.ok) throw new Error("Failed to update FTP profile");
+  return response.json();
+};
+
+export const deleteFtpProfile = async (id: number): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed to delete FTP profile");
+};
+
 export const testFtpConnection = async (profile: FtpProfile & { password?: string }): Promise<{ message: string }> => {
   const response = await fetch(`${API_BASE_URL}/api/ftp/test`, {
     method: "POST",

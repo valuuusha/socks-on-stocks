@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useFileStore } from "../store/useFileStore";
-import { getFtpProfiles, saveFtpProfile, testFtpConnection, uploadToFtp, FtpProfile } from "../api/client";
+import { getFtpProfiles, saveFtpProfile, testFtpConnection, uploadToFtp, deleteFtpProfile, FtpProfile } from "../api/client";
+import { Eye, EyeOff } from "lucide-react";
 
 const KNOWN_PLATFORMS: Record<string, string> = {
   "Shutter Stock": "ftp.shutterstock.com",
@@ -35,6 +36,8 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [uploadErrorMsg, setUploadErrorMsg] = useState("");
   const [uploadSuccessCount, setUploadSuccessCount] = useState(0);
+
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     getFtpProfiles().then(setProfiles).catch(console.error);
@@ -137,12 +140,43 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
             </div>
             <div className="ftp-form-group">
               <label>Password :</label>
-              <input className="ftp-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={profiles.some(p => p.platform_name === platformName) ? "•••••••• (Saved)" : "password"} />
+              <div style={{ position: "relative" }}>
+                <input
+                  className="ftp-input"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={profiles.some(p => p.platform_name === platformName) ? "•••••••• (Saved)" : "password"}
+                />
+                <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    style={{ position: "absolute", right: 8, top: 7, background: "none", border: "none", cursor: "pointer", padding: 0, color: "#5d7185", display: "flex" }}
+                >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
             <div className="ftp-form-group">
               <label>Directory :</label>
               <input className="ftp-input" value={directory} onChange={e => setDirectory(e.target.value)} placeholder="/" />
             </div>
+            {profiles.find(p => p.platform_name === platformName)?.id && (
+              <button
+                type="button"
+                className="ftp-btn-secondary"
+                style={{ marginTop: 8 }}
+                onClick={async () => {
+                  const prof = profiles.find(p => p.platform_name === platformName);
+                  if (!prof?.id) return;
+                  await deleteFtpProfile(prof.id);
+                  setProfiles(prev => prev.filter(p => p.id !== prof.id));
+                  setPlatformName(""); setHost(""); setLogin(""); setPassword(""); setDirectory("/");
+                }}
+              >
+                Delete profile
+              </button>
+            )}
             <button className="ftp-btn-test" onClick={handleTestConnection} disabled={isTesting || uploadStatus === 'uploading'}>
               {isTesting ? "Testing..." : "Test connection"}
             </button>

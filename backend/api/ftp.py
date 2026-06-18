@@ -70,6 +70,34 @@ def create_or_update_profile(profile: FTPProfileCreate, db: Session = Depends(ge
     db.refresh(db_profile)
     return db_profile
 
+@router.put("/{profile_id}", response_model=FTPProfileResponse)
+def update_profile(profile_id: int, profile: FTPProfileCreate, db: Session = Depends(get_db)):
+    db_profile = db.query(FTPProfile).filter(FTPProfile.id == profile_id).first()
+    if not db_profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+
+    db_profile.platform_name = profile.platform_name
+    db_profile.host = profile.host
+    db_profile.port = profile.port
+    db_profile.login = profile.login
+    db_profile.directory = profile.directory
+    if profile.password:
+        db_profile.encrypted_password = encrypt_password(profile.password)
+
+    db.commit()
+    db.refresh(db_profile)
+    return db_profile
+
+
+@router.delete("/{profile_id}", status_code=204)
+def delete_profile(profile_id: int, db: Session = Depends(get_db)):
+    profile = db.query(FTPProfile).filter(FTPProfile.id == profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+    db.delete(profile)
+    db.commit()
+    return
+
 @router.post("/test")
 def test_ftp(request: FTPTestRequest):
 
