@@ -113,6 +113,35 @@ def _write_exif_data(file_path: str, title: str, description: str, keywords: lis
         if result.returncode != 0:
             message = result.stderr.strip() or result.stdout.strip() or "ExifTool failed."
             raise RuntimeError(message)
+        
+def _read_exif_data(file_path: str) -> dict:
+    import json
+    cmd = [
+        *_get_exiftool_command(),
+        "-charset", "UTF8",
+        "-j",
+        "-XMP:Title", "-IPTC:ObjectName",
+        "-XMP:Description", "-IPTC:Caption-Abstract",
+        "-XMP:Subject", "-IPTC:Keywords",
+        file_path,
+    ]
+    result = subprocess.run(
+        cmd, capture_output=True, text=True,
+        encoding="utf-8", errors="replace", cwd=str(BACKEND_DIR),
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return {"title": "", "description": "", "keywords": []}
+
+    data = json.loads(result.stdout)[0]
+    keywords = data.get("Subject") or data.get("Keywords") or []
+    if isinstance(keywords, str):
+        keywords = [k.strip() for k in keywords.split(",") if k.strip()]
+
+    return {
+        "title": data.get("Title") or data.get("ObjectName") or "",
+        "description": data.get("Description") or data.get("Caption-Abstract") or "",
+        "keywords": keywords,
+    }
 
 def _resolve_local_file_path(file_record: LocalFile, db: Session) -> Path | None:
     resolved_path = upload_storage.resolve_existing_path(file_record.absolute_path)
