@@ -3,7 +3,6 @@ import { useFileStore } from "../store/useFileStore";
 import { getFtpProfiles, saveFtpProfile, testFtpConnection, uploadToFtp, deleteFtpProfile, FtpProfile } from "../api/client";
 import { Eye, EyeOff } from "lucide-react";
 
-// Прибрали "Custom..." звідси, тепер тут тільки реальні платформи
 const PREDEFINED_PLATFORMS: Record<string, string> = {
   "Shutter Stock": "ftp.shutterstock.com",
   "Adobe Stock": "ftp.contributor.adobestock.com",
@@ -49,7 +48,6 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
 
   const predefinedKeys = Object.keys(PREDEFINED_PLATFORMS);
   
-  // Фільтруємо збережені профілі: відкидаємо дефолтні та випадково збережений "Custom..."
   const savedCustomKeys = profiles
     .map(p => p.platform_name)
     .filter(name => !predefinedKeys.includes(name) && name !== "Custom...");
