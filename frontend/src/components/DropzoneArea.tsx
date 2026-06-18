@@ -5,6 +5,7 @@ import { uploadFiles } from "../api/client";
 import { useFileStore } from "../store/useFileStore";
 
 const ACCEPTED_FILE_TYPES = ".jpg,.jpeg,image/jpeg";
+const POPUP_AUTO_HIDE_MS = 7000;
 
 const isJpegFile = (file: File) => {
   const lowerCaseName = file.name.toLowerCase();
@@ -22,6 +23,16 @@ export const DropzoneArea = () => {
   const { addFiles, files, isImporting, setIsImporting } = useFileStore();
 
   const hasFiles = files.length > 0;
+
+  React.useEffect(() => {
+    if (!popupContent) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setPopupContent(null);
+    }, POPUP_AUTO_HIDE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [popupContent]);
 
   const openFileDialog = () => {
     if (!isImporting) {

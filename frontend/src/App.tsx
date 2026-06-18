@@ -13,6 +13,8 @@ import { useFileStore } from "./store/useFileStore";
 import welcomeLogo from "./assets/logo.svg";
 import "./styles.css";
 
+const NOTIFICATION_AUTO_HIDE_MS = 7000;
+
 type WorkspaceTopbarProps = {
   importedCount: number;
   activeTab: string;
@@ -97,6 +99,36 @@ export const App = () => {
       });
     return () => { isMounted = false; };
   }, [setFiles]);
+
+  useEffect(() => {
+    if (!loadError) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setLoadError("");
+    }, NOTIFICATION_AUTO_HIDE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadError]);
+
+  useEffect(() => {
+    if (!duplicateMessage) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setDuplicateMessage("");
+    }, NOTIFICATION_AUTO_HIDE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [duplicateMessage]);
+
+  useEffect(() => {
+    if (!exportMessage) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setExportMessage("");
+    }, NOTIFICATION_AUTO_HIDE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [exportMessage]);
 
   const handleSelectAllToggle = () => {
     if (isAllSelected) {
