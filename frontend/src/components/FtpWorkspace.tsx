@@ -3,12 +3,12 @@ import { useFileStore } from "../store/useFileStore";
 import { getFtpProfiles, saveFtpProfile, testFtpConnection, uploadToFtp, deleteFtpProfile, FtpProfile } from "../api/client";
 import { Eye, EyeOff } from "lucide-react";
 
-const KNOWN_PLATFORMS: Record<string, string> = {
+// Прибрали "Custom..." звідси, тепер тут тільки реальні платформи
+const PREDEFINED_PLATFORMS: Record<string, string> = {
   "Shutter Stock": "ftp.shutterstock.com",
   "Adobe Stock": "ftp.contributor.adobestock.com",
   "iStock": "ftp.gettyimages.com",
   "Depositphotos": "ftp.depositphotos.com",
-  "Custom...": "",
 };
 
 type FtpWorkspaceProps = {
@@ -25,6 +25,10 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
 
   const [profiles, setProfiles] = useState<FtpProfile[]>([]);
   const [platformName, setPlatformName] = useState("");
+  
+  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [customName, setCustomName] = useState("");
+
   const [host, setHost] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -43,28 +47,57 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
     getFtpProfiles().then(setProfiles).catch(console.error);
   }, []);
 
+  const predefinedKeys = Object.keys(PREDEFINED_PLATFORMS);
+  
+  // Фільтруємо збережені профілі: відкидаємо дефолтні та випадково збережений "Custom..."
+  const savedCustomKeys = profiles
+    .map(p => p.platform_name)
+    .filter(name => !predefinedKeys.includes(name) && name !== "Custom...");
+    
+  const allDropdownOptions = [...predefinedKeys, ...savedCustomKeys];
+
+  const effectivePlatformName = isCustomMode ? customName : platformName;
+
   const handlePlatformChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = e.target.value;
-    setPlatformName(selected);
     setTestStatus("Not tested");
     setPassword(""); 
 
-    const existingProfile = profiles.find(p => p.platform_name === selected);
-    
-    if (existingProfile) {
-      setHost(existingProfile.host);
-      setLogin(existingProfile.login);
-      setDirectory(existingProfile.directory || "/");
-    } else {
-      setHost(KNOWN_PLATFORMS[selected] || "");
+    if (selected === "Custom...") {
+      setIsCustomMode(true);
+      setPlatformName("");
+      setCustomName("");
+      setHost("");
       setLogin("");
       setDirectory("/");
+    } else {
+      setIsCustomMode(false);
+      setPlatformName(selected);
+      
+      const existingProfile = profiles.find(p => p.platform_name === selected);
+      
+      if (existingProfile) {
+        setHost(existingProfile.host);
+        setLogin(existingProfile.login);
+        setDirectory(existingProfile.directory || "/");
+      } else {
+        setHost(PREDEFINED_PLATFORMS[selected] || "");
+        setLogin("");
+        setDirectory("/");
+      }
     }
   };
 
   const saveCurrentProfile = async () => {
-    if (password) {
-      const saved = await saveFtpProfile({ platform_name: platformName, host, port: 21, login, password, directory });
+    if (password && effectivePlatformName) {
+      const saved = await saveFtpProfile({ 
+        platform_name: effectivePlatformName, 
+        host, 
+        port: 21, 
+        login, 
+        password, 
+        directory 
+      });
       setProfiles(prev => {
         const filtered = prev.filter(p => p.platform_name !== saved.platform_name);
         return [...filtered, saved];
@@ -73,7 +106,7 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
   };
 
   const handleTestConnection = async () => {
-    if (!platformName || !host || !login) {
+    if (!effectivePlatformName || !host || !login) {
       setTestStatus("Error: Fill in all required fields.");
       return;
     }
@@ -81,7 +114,14 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
     setTestStatus("Testing connection...");
     try {
       await saveCurrentProfile();
-      const result = await testFtpConnection({ platform_name: platformName, host, port: 21, login, password, directory });
+      const result = await testFtpConnection({ 
+        platform_name: effectivePlatformName, 
+        host, 
+        port: 21, 
+        login, 
+        password, 
+        directory 
+      });
       setTestStatus(result.message);
     } catch (error: any) {
       setTestStatus(`Error: ${error.message}`);
@@ -91,13 +131,18 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
   };
 
   const handleUpload = async () => {
-    if (!platformName || !host || !login) return;
+    if (!effectivePlatformName || !host || !login) return;
     
     setUploadStatus('uploading');
     try {
       await saveCurrentProfile();
       const res = await uploadToFtp({
-        platform_name: platformName, host, port: 21, login, password, directory,
+        platform_name: effectivePlatformName, 
+        host, 
+        port: 21, 
+        login, 
+        password, 
+        directory,
         file_ids: selectedFileIds
       });
 
@@ -114,6 +159,24 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
     }
   };
 
+  const handleDeleteProfile = async () => {
+    const prof = profiles.find(p => p.platform_name === effectivePlatformName);
+    if (!prof?.id) return;
+    
+    await deleteFtpProfile(prof.id);
+    setProfiles(prev => prev.filter(p => p.id !== prof.id));
+    
+    if (isCustomMode) {
+      setCustomName("");
+    } else {
+      setPlatformName("");
+    }
+    setHost(""); 
+    setLogin(""); 
+    setPassword(""); 
+    setDirectory("/");
+  };
+
   return (
     <div className="ftp-workspace">
       <div className="ftp-columns">
@@ -121,15 +184,34 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
           <h2 className="ftp-panel-title">FTP connection settings</h2>
           <div className="ftp-panel-card">
             <p className="ftp-panel-desc">Configure FTP connection and upload selected images.</p>
+            
             <div className="ftp-form-group">
               <label>Stock platform * :</label>
-              <select className="ftp-input" value={platformName} onChange={handlePlatformChange}>
+              <select 
+                className="ftp-input" 
+                value={isCustomMode ? "Custom..." : platformName} 
+                onChange={handlePlatformChange}
+              >
                 <option value="" disabled>not selected</option>
-                {Object.keys(KNOWN_PLATFORMS).map(name => (
+                {allDropdownOptions.map(name => (
                   <option key={name} value={name}>{name}</option>
                 ))}
+                <option value="Custom...">Custom...</option>
               </select>
             </div>
+
+            {isCustomMode && (
+              <div className="ftp-form-group">
+                <label>Profile Name * :</label>
+                <input 
+                  className="ftp-input" 
+                  value={customName} 
+                  onChange={e => setCustomName(e.target.value)} 
+                  placeholder="My Custom FTP Server" 
+                />
+              </div>
+            )}
+
             <div className="ftp-form-group">
               <label>Host * :</label>
               <input className="ftp-input" value={host} onChange={e => setHost(e.target.value)} placeholder="ftp.example.com" />
@@ -146,7 +228,7 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder={profiles.some(p => p.platform_name === platformName) ? "•••••••• (Saved)" : "password"}
+                  placeholder={profiles.some(p => p.platform_name === effectivePlatformName) ? "•••••••• (Saved)" : "password"}
                 />
                 <button
                     type="button"
@@ -161,25 +243,28 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
               <label>Directory :</label>
               <input className="ftp-input" value={directory} onChange={e => setDirectory(e.target.value)} placeholder="/" />
             </div>
-            {profiles.find(p => p.platform_name === platformName)?.id && (
-              <button
-                type="button"
-                className="ftp-btn-secondary"
-                style={{ marginTop: 8 }}
-                onClick={async () => {
-                  const prof = profiles.find(p => p.platform_name === platformName);
-                  if (!prof?.id) return;
-                  await deleteFtpProfile(prof.id);
-                  setProfiles(prev => prev.filter(p => p.id !== prof.id));
-                  setPlatformName(""); setHost(""); setLogin(""); setPassword(""); setDirectory("/");
-                }}
+
+            <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+              {profiles.find(p => p.platform_name === effectivePlatformName)?.id && (
+                <button
+                  type="button"
+                  className="ftp-btn-secondary"
+                  style={{ margin: 0, padding: "10px 16px" }}
+                  onClick={handleDeleteProfile}
+                >
+                  Delete profile
+                </button>
+              )}
+              <button 
+                className="ftp-btn-test" 
+                onClick={handleTestConnection} 
+                disabled={isTesting || uploadStatus === 'uploading'}
+                style={{ margin: 0 }}
               >
-                Delete profile
+                {isTesting ? "Testing..." : "Test connection"}
               </button>
-            )}
-            <button className="ftp-btn-test" onClick={handleTestConnection} disabled={isTesting || uploadStatus === 'uploading'}>
-              {isTesting ? "Testing..." : "Test connection"}
-            </button>
+            </div>
+            
             <p className={`ftp-status-text ${testStatus.startsWith("Error") ? "ftp-status-error" : testStatus.startsWith("Connection successful") ? "ftp-status-success" : ""}`}>
               Connection status: {testStatus}
             </p>
@@ -219,7 +304,7 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
         <button className="ftp-btn-secondary" onClick={onBack} disabled={uploadStatus === 'uploading'}>Back to metadata</button>
         <button 
           className="ftp-btn-primary" 
-          disabled={selectedFiles.length === 0 || !platformName || uploadStatus === 'uploading'}
+          disabled={selectedFiles.length === 0 || !effectivePlatformName || uploadStatus === 'uploading'}
           onClick={handleUpload}
         >
           {uploadStatus === 'uploading' ? 'Uploading...' : 'Upload to FTP'}
@@ -237,7 +322,7 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
             <div className="ftp-modal-details">
               Uploaded files: {uploadSuccessCount} / {selectedFiles.length}<br/>
               Destination: {directory || "/"}<br/>
-              FTP profile: {platformName}
+              FTP profile: {effectivePlatformName}
               <br/><br/>
               Great job!<br/>Your files are ready for stock platform processing.
             </div>
@@ -262,7 +347,7 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
               Possible reason:<br/>
               <span style={{color: "#d32f2f"}}>{uploadErrorMsg}</span>
               <br/><br/>
-              FTP profile: {platformName}
+              FTP profile: {effectivePlatformName}
             </div>
             <div className="ftp-modal-actions">
               <button className="ftp-btn-secondary" onClick={() => setUploadStatus('idle')}>Check FTP settings</button>
