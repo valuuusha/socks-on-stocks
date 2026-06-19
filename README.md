@@ -57,6 +57,32 @@ npm run dev
 
 Frontend runs at `http://127.0.0.1:5173`
 
+### macOS app
+
+The desktop build wraps the UI in Electron and launches the FastAPI service only
+on the local machine. Its database, imported images, and thumbnail cache live in
+`~/Library/Application Support/Socks on Stocks/data`, so they survive app updates.
+
+On macOS, install the packaging prerequisite once:
+
+```bash
+python3 -m pip install pyinstaller
+```
+
+Then build a distributable `.dmg`:
+
+```bash
+cd frontend
+npm install
+npm run desktop:package
+```
+
+The result is written to `frontend/dist/` by electron-builder. For development,
+run `npm run desktop:dev`; it opens the app window and starts the local API.
+
+The application is unsigned by default. For distribution outside your own Mac,
+it must be signed and notarized with an Apple Developer certificate.
+
 ## Project Structure
 
 ```text

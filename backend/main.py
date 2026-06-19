@@ -14,14 +14,18 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-    ],
+    # The packaged Electron renderer is loaded from file:// instead of Vite.
+    # The API only listens on 127.0.0.1, so this does not expose it to a network.
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/health", include_in_schema=False)
+def health_check():
+    """Small readiness endpoint used by the desktop shell."""
+    return {"status": "ok"}
 
 app.include_router(files_router)
 app.include_router(metadata_router)
@@ -31,4 +35,3 @@ app.include_router(ftp_router)
 def on_startup():
     """Create DB tables on first run."""
     init_db()
-    

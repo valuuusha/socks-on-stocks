@@ -30,6 +30,7 @@ build/
 *.egg-info/
 backend/exiftool.exe
 backend/exiftool_files
+dist/backend/
 
 # OS
 .DS_Store

@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+// The Electron shell adds this query parameter after reserving a free local port.
+// Vite development and the browser version retain the environment/default URL.
+const desktopApiUrl = new URLSearchParams(window.location.search).get("apiUrl");
+const API_BASE_URL = desktopApiUrl ?? import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export type ApiFileResponse = {
   id: number;

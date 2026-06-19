@@ -25,8 +25,11 @@ class UploadStorage:
     """Stores browser-uploaded images as local files the backend can process."""
 
     def __init__(self, storage_dir: Path | None = None) -> None:
+        data_dir = os.getenv("SOCKS_ON_STOCKS_DATA_DIR")
         self.storage_dir = storage_dir or (
-            Path(__file__).resolve().parents[1] / "storage" / "imports"
+            Path(data_dir).expanduser().resolve() / "imports"
+            if data_dir
+            else Path(__file__).resolve().parents[1] / "storage" / "imports"
         )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,17 +1,31 @@
 import os
 import ftplib
 import ssl
+from pathlib import Path
+
 from cryptography.fernet import Fernet
 
-KEY_FILE = "secret.key"
+
+def _key_file() -> Path:
+    """Store credentials' encryption key in writable per-user app data."""
+    data_dir = os.getenv("SOCKS_ON_STOCKS_DATA_DIR")
+    if data_dir:
+        directory = Path(data_dir).expanduser().resolve()
+        directory.mkdir(parents=True, exist_ok=True)
+        return directory / "secret.key"
+
+    # Supports the existing direct-backend workflow during development.
+    return Path("secret.key")
 
 def _get_encryption_key() -> bytes:
-    if not os.path.exists(KEY_FILE):
+    key_file = _key_file()
+    if not key_file.exists():
         key = Fernet.generate_key()
-        with open(KEY_FILE, "wb") as f:
+        with key_file.open("wb") as f:
             f.write(key)
+        key_file.chmod(0o600)
     else:
-        with open(KEY_FILE, "rb") as f:
+        with key_file.open("rb") as f:
             key = f.read()
     return key
 

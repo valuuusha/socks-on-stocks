@@ -23,8 +23,11 @@ class PreviewGenerator:
     ) -> None:
         self.max_size = max_size
         self.quality = quality
+        data_dir = os.getenv("SOCKS_ON_STOCKS_DATA_DIR")
         self.cache_dir = cache_dir or (
-            Path(tempfile.gettempdir()) / "socks_on_stocks_thumbnails"
+            Path(data_dir).expanduser().resolve() / "thumbnails"
+            if data_dir
+            else Path(tempfile.gettempdir()) / "socks_on_stocks_thumbnails"
         )
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
