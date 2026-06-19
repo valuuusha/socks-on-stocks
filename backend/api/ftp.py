@@ -11,7 +11,6 @@ from typing import Optional, List
 from backend.database import get_db
 from backend.models import FTPProfile, LocalFile, FileMetadata
 from backend.services.ftp_service import encrypt_password, decrypt_password, test_connection
-
 from backend.api.files import _write_exif_data, _resolve_local_file_path
 
 router = APIRouter(prefix="/api/ftp", tags=["ftp"])
@@ -33,11 +32,21 @@ class FTPProfileResponse(FTPProfileBase):
         from_attributes = True
 
 class FTPTestRequest(BaseModel):
+    platform_name: str
     host: str
     port: int = 21
     login: str
-    password: str
+    password: str = ""
     directory: Optional[str] = "/"
+
+class FTPUploadRequest(BaseModel):
+    platform_name: str
+    host: str
+    port: int = 21
+    login: str
+    password: str = ""
+    directory: str = "/"
+    file_ids: List[int]
 
 @router.get("", response_model=List[FTPProfileResponse])
 def get_profiles(db: Session = Depends(get_db)):
@@ -88,7 +97,6 @@ def update_profile(profile_id: int, profile: FTPProfileCreate, db: Session = Dep
     db.refresh(db_profile)
     return db_profile
 
-
 @router.delete("/{profile_id}", status_code=204)
 def delete_profile(profile_id: int, db: Session = Depends(get_db)):
     profile = db.query(FTPProfile).filter(FTPProfile.id == profile_id).first()
@@ -99,27 +107,23 @@ def delete_profile(profile_id: int, db: Session = Depends(get_db)):
     return
 
 @router.post("/test")
-def test_ftp(request: FTPTestRequest):
+def test_ftp(request: FTPTestRequest, db: Session = Depends(get_db)):
+    password = request.password
+    if not password:
+        profile = db.query(FTPProfile).filter(FTPProfile.platform_name == request.platform_name).first()
+        if profile and profile.encrypted_password:
+            password = decrypt_password(profile.encrypted_password)
 
     success, message = test_connection(
         request.host, 
         request.port, 
         request.login, 
-        request.password, 
+        password, 
         request.directory
     )
     if not success:
         raise HTTPException(status_code=400, detail=message)
     return {"message": message}
-
-class FTPUploadRequest(BaseModel):
-    platform_name: str
-    host: str
-    port: int = 21
-    login: str
-    password: str
-    directory: str = "/"
-    file_ids: List[int]
 
 @router.post("/upload")
 def upload_files_to_ftp(request: FTPUploadRequest, db: Session = Depends(get_db)):
@@ -130,16 +134,22 @@ def upload_files_to_ftp(request: FTPUploadRequest, db: Session = Depends(get_db)
     success_count = 0
     errors = []
 
+    password = request.password
+    if not password:
+        profile = db.query(FTPProfile).filter(FTPProfile.platform_name == request.platform_name).first()
+        if profile and profile.encrypted_password:
+            password = decrypt_password(profile.encrypted_password)
+
     try:
         try:
             ftp = ftplib.FTP_TLS()
             ftp.connect(request.host, request.port, timeout=15)
-            ftp.login(request.login, request.password)
+            ftp.login(request.login, password)
             ftp.prot_p()
         except (ssl.SSLError, ftplib.error_perm):
             ftp = ftplib.FTP()
             ftp.connect(request.host, request.port, timeout=15)
-            ftp.login(request.login, request.password)
+            ftp.login(request.login, password)
 
         if request.directory and request.directory.strip() not in ["", "/"]:
             ftp.cwd(request.directory)
