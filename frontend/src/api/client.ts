@@ -181,7 +181,6 @@ export const deleteFile = async (id: number): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/api/files/${id}`, {
     method: "DELETE",
   });
-
   if (!response.ok) {
     let errorBody: unknown = null;
     try {
@@ -208,5 +207,115 @@ export const updateMetadata = async (fileId: number, data: Partial<FileMetadata>
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error("Failed to update metadata");
+  return response.json();
+};
+
+export const exportSelectedFiles = async (fileIds: number[]) => {
+  const response = await fetch(`${API_BASE_URL}/api/files/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_ids: fileIds }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Export failed (${response.status}): ${errorText}`);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `SocksOnStocks_Export_${Date.now()}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export type FtpProfile = {
+  id?: number;
+  platform_name: string;
+  host: string;
+  port: number;
+  login: string;
+  directory: string;
+};
+
+export const getFtpProfiles = async (): Promise<FtpProfile[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp`);
+  if (!response.ok) throw new Error("Failed to fetch FTP profiles");
+  return response.json();
+};
+
+export const saveFtpProfile = async (profile: FtpProfile & { password?: string }): Promise<FtpProfile> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+  if (!response.ok) throw new Error("Failed to save FTP profile");
+  return response.json();
+};
+
+export const updateFtpProfile = async (
+  id: number,
+  profile: FtpProfile & { password?: string }
+): Promise<FtpProfile> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+  if (!response.ok) throw new Error("Failed to update FTP profile");
+  return response.json();
+};
+
+export const deleteFtpProfile = async (id: number): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed to delete FTP profile");
+};
+
+export const testFtpConnection = async (profile: FtpProfile & { password?: string }): Promise<{ message: string }> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(profile),
+  });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.detail || "Connection failed");
+  }
+  return response.json();
+};
+
+export type FtpUploadRequest = {
+  platform_name: string;
+  host: string;
+  port: number;
+  login: string;
+  password?: string;
+  directory: string;
+  file_ids: number[];
+};
+
+export type FtpUploadResponse = {
+  success_count: number;
+  total: number;
+  errors: string[];
+};
+
+export const uploadToFtp = async (data: FtpUploadRequest): Promise<FtpUploadResponse> => {
+  const response = await fetch(`${API_BASE_URL}/api/ftp/upload`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.detail || "Upload failed");
+  }
   return response.json();
 };

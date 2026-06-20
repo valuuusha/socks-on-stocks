@@ -57,7 +57,9 @@ export const TagsInput = ({ tags, onChange, onBlur }: TagsInputProps) => {
     
     return (
       <input
-        ref={(el) => (inputRefs.current[index] = el)}
+        ref={(el) => {
+          inputRefs.current[index] = el;
+        }}
         type="text"
         className={`tags-input-field ${isActive ? "active" : "inactive"}`}
         placeholder={tags.length === 0 && isActive ? "Enter keywords..." : ""}
@@ -105,7 +107,7 @@ export const TagsInput = ({ tags, onChange, onBlur }: TagsInputProps) => {
               onClick={() => removeTag(index)}
               tabIndex={-1}
             >
-              ✕
+              x
             </button>
           </span>
         </React.Fragment>
