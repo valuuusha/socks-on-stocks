@@ -28,7 +28,7 @@ A folder with 100 unique JPEG files was created for testing.
 Test files are generated locally using the script:
 
 ```bash
-python3 docs/nfr/performance-test/generate_45mb_jpegs.py
+python3 docs/nfr/performance-3-test/generate_45mb_jpegs.py
 ```
 
 Confirmation of test file generation:
@@ -62,7 +62,7 @@ The application must open or import a workspace with 100 local JPEG files in no 
 
 Screenshot of import result:
 
-![Import result](./performance-test/screenshots/02_import_result.png)
+![Import result](./performance-3-test/screenshots/02_import_result.png)
 
 ### Conclusion
 
@@ -86,7 +86,7 @@ Chrome DevTools Performance / React Profiler was used. During the recording, tex
 
 Screenshot of performance profiling:
 
-![Performance profiling](./performance-test/screenshots/03_performance_metadata_editing.png)
+![Performance profiling](./performance-3-test/screenshots/03_performance_metadata_editing.png)
 
 ### Conclusion
 
