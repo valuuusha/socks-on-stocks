@@ -1,5 +1,6 @@
-import os
 import io
+import logging
+import os
 import zipfile
 import subprocess
 import shutil
@@ -31,6 +32,7 @@ from backend.services.upload_storage_service import (
 )
 
 router = APIRouter(prefix="/api/files", tags=["files"])
+logger = logging.getLogger(__name__)
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 EXIFTOOL_PERL = BACKEND_DIR / "exiftool_files" / "perl.exe"
@@ -352,8 +354,8 @@ def delete_file_from_workspace(file_id: int, db: Session = Depends(get_db)):
     if source_path is not None:
         try:
             source_path.unlink()
-        except OSError as e:
-            print(f"Failed to delete physical file: {e}")
+        except OSError:
+            logger.warning("Failed to delete physical file: %s", source_path, exc_info=True)
 
     db_file.status = "removed"
     db.commit()
