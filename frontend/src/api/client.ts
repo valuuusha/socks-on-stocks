@@ -212,6 +212,13 @@ export const updateMetadata = async (fileId: number, data: Partial<FileMetadata>
   return response.json();
 };
 
+export const pickFiles = async (): Promise<string[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/files/pick`);
+  if (!response.ok) throw new Error("Failed to open file picker");
+  const data = await response.json();
+  return data.paths;
+};
+
 export const exportSelectedFiles = async (fileIds: number[]) => {
   const response = await fetch(`${API_BASE_URL}/api/files/export`, {
     method: "POST",
@@ -220,19 +227,11 @@ export const exportSelectedFiles = async (fileIds: number[]) => {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Export failed (${response.status}): ${errorText}`);
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.detail || "Export failed");
   }
 
-  const blob = await response.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `SocksOnStocks_Export_${Date.now()}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
+  return response.json();
 };
 
 export type FtpProfile = {
@@ -320,4 +319,21 @@ export const uploadToFtp = async (data: FtpUploadRequest): Promise<FtpUploadResp
     throw new Error(errorBody.detail || "Upload failed");
   }
   return response.json();
+};
+
+export type ConflictData = {
+  file_id: number;
+  filename: string;
+  file_meta: { title: string; description: string; keywords: string[] };
+  db_meta: { title: string; description: string; keywords: string[] };
+};
+
+export const syncMetadata = async (): Promise<ConflictData[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/metadata/sync`);
+  if (!response.ok) return [];
+  return response.json();
+};
+
+export const resolveConflict = async (fileId: number, targetData: { title: string; description: string; keywords: string[] }) => {
+  return updateMetadata(fileId, targetData);
 };

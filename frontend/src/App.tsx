@@ -5,6 +5,9 @@ import {
   exportSelectedFiles,
   getMetadata,
   updateMetadata,
+  syncMetadata,
+  ConflictData,
+  resolveConflict
 } from "./api/client";
 import DropzoneArea from "./components/DropzoneArea";
 import { GalleryGrid } from "./components/GalleryGrid";
@@ -79,79 +82,86 @@ export const App = () => {
   const [exportMessage, setExportMessage] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [metadataRefreshKey, setMetadataRefreshKey] = useState(0);
+  const [conflicts, setConflicts] = useState<ConflictData[]>([]);
+  const [currentConflict, setCurrentConflict] = useState<ConflictData | null>(null);
 
   const isAllSelected = files.length > 0 && selectedFileIds.length === files.length;
-  const duplicateTemplateFile = duplicateTemplateId
-    ? files.find((file) => file.id === duplicateTemplateId)
-    : null;
-  const duplicateTargetIds = duplicateTemplateId
-    ? selectedFileIds.filter((id) => id !== duplicateTemplateId)
-    : [];
+  const duplicateTemplateFile = duplicateTemplateId ? files.find((file) => file.id === duplicateTemplateId) : null;
+  const duplicateTargetIds = duplicateTemplateId ? selectedFileIds.filter((id) => id !== duplicateTemplateId) : [];
+
+  const handleSyncAndCheck = async () => {
+    try {
+      const detected = await syncMetadata();
+      setConflicts(detected);
+      if (detected.length > 0) setCurrentConflict(detected[0]);
+      setMetadataRefreshKey(k => k + 1);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
-    listFiles()
-      .then((workspaceFiles) => {
-        if (isMounted) setFiles(workspaceFiles);
-      })
-      .catch(() => {
-        if (isMounted) setLoadError("Workspace files could not be loaded.");
-      });
+    listFiles().then((workspaceFiles) => {
+      if (isMounted) setFiles(workspaceFiles);
+    }).catch(() => {
+      if (isMounted) setLoadError("Workspace files could not be loaded.");
+    });
     return () => { isMounted = false; };
   }, [setFiles]);
 
   useEffect(() => {
+    if (files.length > 0) {
+      handleSyncAndCheck();
+    }
+  }, [files.length]);
+
+  useEffect(() => {
     if (!loadError) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setLoadError("");
-    }, NOTIFICATION_AUTO_HIDE_MS);
-
+    const timeoutId = window.setTimeout(() => setLoadError(""), NOTIFICATION_AUTO_HIDE_MS);
     return () => window.clearTimeout(timeoutId);
   }, [loadError]);
 
   useEffect(() => {
     if (!duplicateMessage) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setDuplicateMessage("");
-    }, NOTIFICATION_AUTO_HIDE_MS);
-
+    const timeoutId = window.setTimeout(() => setDuplicateMessage(""), NOTIFICATION_AUTO_HIDE_MS);
     return () => window.clearTimeout(timeoutId);
   }, [duplicateMessage]);
 
   useEffect(() => {
     if (!exportMessage) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setExportMessage("");
-    }, NOTIFICATION_AUTO_HIDE_MS);
-
+    const timeoutId = window.setTimeout(() => setExportMessage(""), NOTIFICATION_AUTO_HIDE_MS);
     return () => window.clearTimeout(timeoutId);
   }, [exportMessage]);
 
-  const handleSelectAllToggle = () => {
-    if (isAllSelected) {
-      deselectAll();
-    } else {
-      selectAll();
+  const handleResolveConflict = async (dataToKeep: { title: string; description: string; keywords: string[] }) => {
+    if (!currentConflict) return;
+    try {
+      await resolveConflict(currentConflict.file_id, dataToKeep);
+      const remaining = conflicts.filter(c => c.file_id !== currentConflict.file_id);
+      setConflicts(remaining);
+      setCurrentConflict(remaining.length > 0 ? remaining[0] : null);
+      setMetadataRefreshKey(k => k + 1);
+    } catch (error) {
+      console.error("Failed to resolve conflict", error);
     }
+  };
+
+  const handleSelectAllToggle = () => {
+    if (isAllSelected) deselectAll();
+    else selectAll();
   };
 
   const handleStartDuplicate = () => {
     setExportMessage("");
-
     if (selectedFileIds.length !== 1) {
       setDuplicateMessage("Select one template photo first.");
       return;
     }
-
     const templateId = selectedFileIds[0];
     const templateFile = files.find((file) => file.id === templateId);
     setDuplicateTemplateId(templateId);
-    setDuplicateMessage(
-      `Template: ${templateFile?.filename ?? "selected photo"}. Select target photos, then apply metadata.`,
-    );
+    setDuplicateMessage(`Template: ${templateFile?.filename ?? "selected photo"}. Select target photos, then apply metadata.`);
     deselectAll();
   };
 
@@ -164,17 +174,15 @@ export const App = () => {
 
   const handleExportSelected = async () => {
     if (selectedFileIds.length === 0) return;
-
     setIsExporting(true);
     setExportMessage("");
     setDuplicateMessage("");
-
     try {
-      await exportSelectedFiles(selectedFileIds);
-      setExportMessage(`Exported ${selectedFileIds.length} file(s) to ZIP.`);
-    } catch (error) {
-      console.error("Failed to export selected files:", error);
-      setExportMessage("Selected files could not be exported.");
+      const res = await exportSelectedFiles(selectedFileIds);
+      setExportMessage(res.message || `Saved metadata to ${selectedFileIds.length} original file(s).`);
+      deselectAll(); 
+    } catch (error: any) {
+      setExportMessage(`Export error: ${error.message}`);
     } finally {
       setIsExporting(false);
     }
@@ -186,26 +194,20 @@ export const App = () => {
       setDuplicateMessage("Select at least one target photo.");
       return;
     }
-
     setIsDuplicating(true);
     setExportMessage("");
     try {
       const templateMetadata = await getMetadata(duplicateTemplateId);
       await Promise.all(
         duplicateTargetIds.map((id) =>
-          updateMetadata(id, {
-            title: templateMetadata.title,
-            description: templateMetadata.description,
-            keywords: templateMetadata.keywords,
-          }),
-        ),
+          updateMetadata(id, { title: templateMetadata.title, description: templateMetadata.description, keywords: templateMetadata.keywords })
+        )
       );
       setMetadataRefreshKey((key) => key + 1);
       setDuplicateMessage(`Metadata duplicated to ${duplicateTargetIds.length} file(s).`);
       setDuplicateTemplateId(null);
       deselectAll();
     } catch (error) {
-      console.error("Failed to duplicate metadata:", error);
       setDuplicateMessage("Metadata could not be duplicated.");
     } finally {
       setIsDuplicating(false);
@@ -214,7 +216,6 @@ export const App = () => {
 
   const handleDeleteSelected = async () => {
     const idsToDelete = [...selectedFileIds];
-
     setIsClearing(true);
     try {
       for (const id of idsToDelete) {
@@ -223,13 +224,10 @@ export const App = () => {
       const remainingFiles = files.filter(f => !idsToDelete.includes(f.id));
       setFiles(remainingFiles);
       deselectAll();
-
       if (duplicateTemplateId && idsToDelete.includes(duplicateTemplateId)) {
         setDuplicateTemplateId(null);
         setDuplicateMessage("");
       }
-    } catch (error) {
-      console.error("Failed to delete selected files:", error);
     } finally {
       setIsClearing(false);
       setShowConfirm(false);
@@ -240,9 +238,7 @@ export const App = () => {
     return (
       <main className="welcome-screen">
         <WorkspaceTopbar importedCount={files.length} activeTab={activeTab} setActiveTab={setActiveTab} />
-
         {loadError && <p className="app-alert welcome-alert">{loadError}</p>}
-
         <section className="welcome-stage" aria-label="Welcome import workspace">
           <img className="welcome-logo" src={welcomeLogo} alt="" />
           <DropzoneArea />
@@ -255,6 +251,45 @@ export const App = () => {
   return (
     <main className="file-import-screen">
       <WorkspaceTopbar importedCount={files.length} activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {currentConflict && (
+        <div className="modal-overlay" style={{ zIndex: 100000 }}>
+          <div className="modal-content" style={{ maxWidth: "800px", padding: "24px" }}>
+            <h2 style={{ marginTop: 0, color: "#071a2d", fontSize: "20px" }}>Metadata Conflict Detected</h2>
+            <p style={{ fontSize: "13px", lineHeight: "1.5" }}>
+              <strong>{currentConflict.filename}</strong> has different metadata in the physical file versus your saved database. Choose which one to keep:
+            </p>
+            
+            <div style={{ display: "flex", gap: "20px", marginTop: "24px" }}>
+              <div style={{ flex: 1, border: "1px solid #7393b3", padding: "16px", borderRadius: "8px", background: "#f8fafc" }}>
+                <h3 style={{ marginTop: 0, color: "#7393b3", fontSize: "16px" }}>Data from File (EXIF)</h3>
+                <p style={{ fontSize: "12px" }}><strong>Title:</strong> {currentConflict.file_meta.title || <i style={{color: "#9ca3af"}}>empty</i>}</p>
+                <p style={{ fontSize: "12px" }}><strong>Desc:</strong> {currentConflict.file_meta.description || <i style={{color: "#9ca3af"}}>empty</i>}</p>
+                <p style={{ fontSize: "12px", marginBottom: "20px" }}><strong>Keywords:</strong> {currentConflict.file_meta.keywords.join(", ") || <i style={{color: "#9ca3af"}}>empty</i>}</p>
+                <button 
+                  style={{ width: "100%", padding: "12px", background: "#7393b3", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
+                  onClick={() => handleResolveConflict(currentConflict.file_meta)}
+                >
+                  Keep File Data
+                </button>
+              </div>
+
+              <div style={{ flex: 1, border: "1px solid #a9b4c0", padding: "16px", borderRadius: "8px", background: "#ffffff" }}>
+                <h3 style={{ marginTop: 0, fontSize: "16px" }}>Data from Database</h3>
+                <p style={{ fontSize: "12px" }}><strong>Title:</strong> {currentConflict.db_meta.title || <i style={{color: "#9ca3af"}}>empty</i>}</p>
+                <p style={{ fontSize: "12px" }}><strong>Desc:</strong> {currentConflict.db_meta.description || <i style={{color: "#9ca3af"}}>empty</i>}</p>
+                <p style={{ fontSize: "12px", marginBottom: "20px" }}><strong>Keywords:</strong> {currentConflict.db_meta.keywords.join(", ") || <i style={{color: "#9ca3af"}}>empty</i>}</p>
+                <button 
+                  style={{ width: "100%", padding: "12px", background: "#071a2d", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" }}
+                  onClick={() => handleResolveConflict(currentConflict.db_meta)}
+                >
+                  Keep Database Data
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === "ftp" ? (
         <FtpWorkspace onBack={() => setActiveTab("files")} />
@@ -272,73 +307,37 @@ export const App = () => {
             <div className="file-import-actions__right">
               {duplicateTemplateId ? (
                 <>
-                  <button
-                    className="file-action-button"
-                    disabled={duplicateTargetIds.length === 0 || isDuplicating}
-                    onClick={handleApplyDuplicate}
-                    type="button"
-                  >
+                  <button className="file-action-button" disabled={duplicateTargetIds.length === 0 || isDuplicating} onClick={handleApplyDuplicate} type="button">
                     {isDuplicating ? "Applying..." : "Apply metadata"}
                   </button>
-                  <button
-                    className="file-action-button"
-                    disabled={isDuplicating}
-                    onClick={handleCancelDuplicate}
-                    type="button"
-                  >
+                  <button className="file-action-button" disabled={isDuplicating} onClick={handleCancelDuplicate} type="button">
                     Cancel
                   </button>
                 </>
               ) : (
                 <>
-                  <button
-                    className="file-action-button"
-                    onClick={handleStartDuplicate}
-                    disabled={selectedFileIds.length === 0}
-                    type="button"
-                  >
+                  <button className="file-action-button" onClick={handleStartDuplicate} disabled={selectedFileIds.length === 0} type="button">
                     Duplicate as...
                   </button>
-                  <button
-                    className="file-action-button"
-                    disabled={selectedFileIds.length === 0 || isExporting}
-                    onClick={handleExportSelected}
-                    type="button"
-                  >
+                  <button className="file-action-button" disabled={selectedFileIds.length === 0 || isExporting} onClick={handleExportSelected} type="button">
                     {isExporting ? "Exporting..." : "Export selected"}
                   </button>
                 </>
               )}
               {!showConfirm ? (
-                <button
-                  className="file-action-button file-action-button--delete"
-                  disabled={selectedFileIds.length === 0}
-                  onClick={() => setShowConfirm(true)}
-                  type="button"
-                >
+                <button className="file-action-button file-action-button--delete" disabled={selectedFileIds.length === 0} onClick={() => setShowConfirm(true)} type="button">
                   Delete
                 </button>
               ) : (
                 <div className="clear-confirm-box">
                   <span className="clear-confirm-text">Delete {selectedFileIds.length} file(s)?</span>
                   <div className="clear-confirm-buttons">
-                    <button className="btn-yes" onClick={handleDeleteSelected} disabled={isClearing}>
-                      {isClearing ? "Deleting..." : "Yes"}
-                    </button>
-                    <button className="btn-cancel" onClick={() => setShowConfirm(false)} disabled={isClearing}>
-                      Cancel
-                    </button>
+                    <button className="btn-yes" onClick={handleDeleteSelected} disabled={isClearing}>{isClearing ? "Deleting..." : "Yes"}</button>
+                    <button className="btn-cancel" onClick={() => setShowConfirm(false)} disabled={isClearing}>Cancel</button>
                   </div>
                 </div>
               )}
-              <button
-                className="file-action-button"
-                onClick={() => setActiveTab("ftp")}
-                disabled={selectedFileIds.length === 0}
-                type="button"
-              >
-                Upload to FTP
-              </button>
+              <button className="file-action-button" onClick={() => setActiveTab("ftp")} disabled={selectedFileIds.length === 0} type="button">Upload to FTP</button>
             </div>
           </div>
 
@@ -350,14 +349,10 @@ export const App = () => {
           )}
 
           {exportMessage && <p className="file-import-status">{exportMessage}</p>}
-
           {loadError && <p className="app-alert file-import-alert">{loadError}</p>}
           
           <section className="file-import-list" aria-label="Imported JPEG files">
-            <GalleryGrid
-              duplicateTemplateId={duplicateTemplateId}
-              metadataRefreshKey={metadataRefreshKey}
-            />
+            <GalleryGrid duplicateTemplateId={duplicateTemplateId} metadataRefreshKey={metadataRefreshKey} />
           </section>
         </>
       )}
