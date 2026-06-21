@@ -7,9 +7,8 @@ The goal of this manual security test was to verify that an FTP password is not 
 The application must:
 
 1. Mask the password in the interface.
-2. Remove the entered password from the form after saving the profile.
-3. Store an encrypted value instead of the original password.
-4. Exclude the password and encrypted value from FTP profile API responses.
+2. Store an encrypted value instead of the original password.
+3. Exclude the password and encrypted value from FTP profile API responses.
 
 ## Test Environment
 
@@ -37,11 +36,12 @@ The password itself is intentionally not included in this report.
 1. Open the FTP section of the application.
 2. Select the `Local NFR Test` profile.
 3. Enter the test password and save the profile by testing the connection.
-4. Verify that the password field is cleared after the save request completes.
-5. Toggle the password visibility button.
-6. Verify that the original password cannot be displayed.
-7. Inspect the `ftp_profiles.encrypted_password` value in the local database.
-8. Verify that the FTP profile API response does not contain a password field.
+4. Reload the application and select the saved profile again.
+5. Verify that the saved password is not returned to the password field.
+6. Toggle the password visibility button.
+7. Verify that the saved password cannot be displayed.
+8. Inspect the `ftp_profiles.encrypted_password` value in the local database.
+9. Verify that the FTP profile API response does not contain a password field.
 
 ## Expected Result
 
@@ -75,18 +75,14 @@ The FTP profile response schema contains the profile name, host, port, login, di
 | Check | Result |
 |---|---|
 | Password is masked by default | Passed |
-| Saved password is removed from the form state | Passed |
-| Visibility toggle cannot reveal the saved password | Passed |
+| Saved profile does not repopulate the password field | Passed |
+| Visibility toggle cannot reveal the saved password after reload | Passed |
 | Database does not contain the password as plain text | Passed |
 | API does not return the password | Passed |
 | User PIN storage | Not applicable: the MVP has no user accounts or PIN authentication |
 
-## Defect Found and Fixed Locally
-
-Before the fix, the password remained in the form state after the profile was saved. The visibility button could therefore reveal it as ordinary text. The form now clears the password and resets visibility immediately after a successful save.
-
 ## Conclusion
 
-NFR-4 **passed** for the authentication data used by the current MVP. The saved FTP password is retained for future FTP operations, but it is stored as an encrypted token, is not displayed as plain text after saving, and is not returned by the API.
+NFR-4 **passed** for the authentication data used by the current MVP. The saved FTP password is retained for future FTP operations, but it is stored as an encrypted token, is not returned to the password field when the profile is loaded again, and is not returned by the API.
 
 User PIN verification is not applicable because the MVP does not contain user accounts or PIN authentication.

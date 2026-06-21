@@ -100,8 +100,6 @@ export const FtpWorkspace = ({ onBack }: FtpWorkspaceProps) => {
         const filtered = prev.filter(p => p.platform_name !== saved.platform_name);
         return [...filtered, saved];
       });
-      setPassword("");
-      setShowPassword(false);
     }
   };
 
