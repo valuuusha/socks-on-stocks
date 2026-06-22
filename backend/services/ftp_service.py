@@ -31,12 +31,16 @@ def test_connection(host: str, port: int, login: str, password: str, directory: 
     try:
         is_secure = False
         try:
-            ftp = ftplib.FTP_TLS()
+            context = ssl._create_unverified_context()
+            ftp = ftplib.FTP_TLS(context=context)
             ftp.connect(host, port, timeout=10)
             ftp.login(login, password)
             ftp.prot_p()
             is_secure = True
-        except (ssl.SSLError, ftplib.error_perm):
+        except (ssl.SSLError, ftplib.error_perm) as e:
+            if "534" in str(e):
+                return False, f"FTP Error: {str(e)}"
+                
             ftp = ftplib.FTP()
             ftp.connect(host, port, timeout=10)
             ftp.login(login, password)

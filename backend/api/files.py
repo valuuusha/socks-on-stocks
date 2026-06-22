@@ -53,43 +53,62 @@ def _get_exiftool_command() -> list[str]:
     return ["exiftool"]
 
 def _write_exif_data(file_path: str, title: str, description: str, keywords: list[str]):
-    cmd = [*_get_exiftool_command(), "-overwrite_original", "-charset", "UTF8", "-IPTC:CodedCharacterSet=UTF8"]
-    if title:
-        cmd.extend([f"-XMP:Title={title}", f"-IPTC:ObjectName={title}", f"-EXIF:XPTitle={title}", f"-EXIF:XPSubject={title}"])
-    if description:
-        cmd.extend([f"-XMP:Description={description}", f"-IPTC:Caption-Abstract={description}", f"-EXIF:ImageDescription={description}", f"-EXIF:XPComment={description}", f"-EXIF:UserComment={description}"])
-    if keywords and len(keywords) > 0:
-        kw_str = ", ".join(keywords)
-        windows_keywords = "; ".join(keywords)
-        cmd.extend(["-sep", ", ", f"-XMP:Subject={kw_str}", f"-IPTC:Keywords={kw_str}", f"-EXIF:XPKeywords={windows_keywords}"])
+    cmd = [
+        *_get_exiftool_command(),
+        "-overwrite_original",
+        "-charset", "UTF8",
+        "-IPTC:CodedCharacterSet=UTF8",
+        "-m"
+    ]
     
-    if len(cmd) > 6:
-        cmd.append(file_path)
-        result = subprocess.run(
-            cmd, check=False, capture_output=True, cwd=str(BACKEND_DIR),
-            text=True, encoding="utf-8", errors="replace", **_get_subprocess_kwargs()
-        )
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr.strip() or "ExifTool failed.")
-
+    cmd.extend([
+        f"-XMP:Title={title}", f"-IPTC:ObjectName={title}", f"-EXIF:XPTitle={title}", f"-EXIF:XPSubject={title}",
+        f"-XMP:Description={description}", f"-IPTC:Caption-Abstract={description}", 
+        f"-EXIF:ImageDescription={description}", f"-EXIF:XPComment={description}", f"-EXIF:UserComment={description}",
+    ])
+    
+    kw_str = ", ".join(keywords) if keywords else ""
+    windows_keywords = "; ".join(keywords) if keywords else ""
+    cmd.extend([
+        "-sep", ", ", f"-XMP:Subject={kw_str}", f"-IPTC:Keywords={kw_str}", f"-EXIF:XPKeywords={windows_keywords}",
+    ])
+    
+    cmd.append(file_path)
+    result = subprocess.run(
+        cmd, check=False, capture_output=True, cwd=str(BACKEND_DIR),
+        text=True, encoding="utf-8", errors="replace", **_get_subprocess_kwargs()
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "ExifTool failed.")
+        
 def _read_exif_data(file_path: str) -> dict:
     import json
-    cmd = [*_get_exiftool_command(), "-charset", "UTF8", "-j", "-XMP:Title", "-IPTC:ObjectName", "-XMP:Description", "-IPTC:Caption-Abstract", "-XMP:Subject", "-IPTC:Keywords", file_path]
+    cmd = [
+        *_get_exiftool_command(), "-charset", "UTF8", "-j",
+        "-XMP:Title", "-IPTC:ObjectName", "-EXIF:XPTitle",
+        "-XMP:Description", "-IPTC:Caption-Abstract", "-EXIF:ImageDescription", "-EXIF:XPComment",
+        "-XMP:Subject", "-IPTC:Keywords", "-EXIF:XPKeywords", file_path,
+    ]
     result = subprocess.run(
         cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(BACKEND_DIR), **_get_subprocess_kwargs()
     )
     if result.returncode != 0 or not result.stdout.strip():
         return {"title": "", "description": "", "keywords": []}
-    
-    data = json.loads(result.stdout)[0]
-    keywords = data.get("Subject") or data.get("Keywords") or []
-    if isinstance(keywords, str):
-        keywords = [k.strip() for k in keywords.split(",") if k.strip()]
-        
+
+    try:
+        data = json.loads(result.stdout)[0]
+    except (json.JSONDecodeError, IndexError):
+        return {"title": "", "description": "", "keywords": []}
+
+    raw_kw = data.get("Subject") or data.get("Keywords") or data.get("XPKeywords") or []
+    if isinstance(raw_kw, str):
+        sep = ";" if ";" in raw_kw else ","
+        raw_kw = [k.strip() for k in raw_kw.split(sep) if k.strip()]
+
     return {
-        "title": data.get("Title") or data.get("ObjectName") or "",
-        "description": data.get("Description") or data.get("Caption-Abstract") or "",
-        "keywords": keywords,
+        "title": str(data.get("Title") or data.get("ObjectName") or data.get("XPTitle") or ""),
+        "description": str(data.get("Description") or data.get("Caption-Abstract") or data.get("ImageDescription") or data.get("XPComment") or ""),
+        "keywords": raw_kw,
     }
 
 def _resolve_local_file_path(file_record: LocalFile, db: Session) -> Path | None:
@@ -144,8 +163,6 @@ def import_files(request: FileImportRequest, db: Session = Depends(get_db)) -> I
     db.commit()
     return result
 
-
-# --- 3. ПРЯМИЙ ПЕРЕЗАПИС ПРИ ЕКСПОРТІ ---
 @router.post("/export")
 def export_files(request: ExportRequest, db: Session = Depends(get_db)):
     requested_file_ids = list(dict.fromkeys(request.file_ids))
@@ -168,7 +185,6 @@ def export_files(request: ExportRequest, db: Session = Depends(get_db)):
         keywords = meta.keywords if meta and meta.keywords else []
 
         try:
-            # ЗАПИСУЄМО НАПРЯМУ В ОРИГІНАЛ
             _write_exif_data(str(source_path), title, description, keywords)
             success_count += 1
         except Exception as exc:

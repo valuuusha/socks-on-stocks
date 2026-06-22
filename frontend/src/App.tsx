@@ -71,6 +71,9 @@ export const App = () => {
   const selectedFileIds = useFileStore((state) => state.selectedFileIds);
   const selectAll = useFileStore((state) => state.selectAll);
   const deselectAll = useFileStore((state) => state.deselectAll);
+  
+  const importWarnings = useFileStore((state) => state.importWarnings);
+  const setImportWarnings = useFileStore((state) => state.setImportWarnings);
 
   const [activeTab, setActiveTab] = useState("files");
   const [loadError, setLoadError] = useState("");
@@ -133,6 +136,12 @@ export const App = () => {
     const timeoutId = window.setTimeout(() => setExportMessage(""), NOTIFICATION_AUTO_HIDE_MS);
     return () => window.clearTimeout(timeoutId);
   }, [exportMessage]);
+
+  useEffect(() => {
+    if (!importWarnings) return;
+    const timeoutId = window.setTimeout(() => setImportWarnings(null), NOTIFICATION_AUTO_HIDE_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [importWarnings, setImportWarnings]);
 
   const handleResolveConflict = async (dataToKeep: { title: string; description: string; keywords: string[] }) => {
     if (!currentConflict) return;
@@ -244,6 +253,18 @@ export const App = () => {
           <DropzoneArea />
           <GalleryGrid />
         </section>
+
+        {importWarnings && (
+          <div className="modal-overlay" onClick={() => setImportWarnings(null)} style={{zIndex: 99999}}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Import Warnings</h3>
+                <button className="modal-close" onClick={() => setImportWarnings(null)}>x</button>
+              </div>
+              <div className="modal-body">{importWarnings}</div>
+            </div>
+          </div>
+        )}
       </main>
     );
   }
@@ -251,6 +272,18 @@ export const App = () => {
   return (
     <main className="file-import-screen">
       <WorkspaceTopbar importedCount={files.length} activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {importWarnings && (
+        <div className="modal-overlay" onClick={() => setImportWarnings(null)} style={{zIndex: 99999}}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Import Warnings</h3>
+              <button className="modal-close" onClick={() => setImportWarnings(null)}>x</button>
+            </div>
+            <div className="modal-body">{importWarnings}</div>
+          </div>
+        </div>
+      )}
 
       {currentConflict && (
         <div className="modal-overlay" style={{ zIndex: 100000 }}>

@@ -1443,3 +1443,9 @@ select {
 .ftp-modal-actions button {
   flex: 1;
 }
+
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+  display: none !important;
+}

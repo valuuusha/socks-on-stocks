@@ -142,11 +142,15 @@ def upload_files_to_ftp(request: FTPUploadRequest, db: Session = Depends(get_db)
 
     try:
         try:
-            ftp = ftplib.FTP_TLS()
+            context = ssl._create_unverified_context()
+            ftp = ftplib.FTP_TLS(context=context)
             ftp.connect(request.host, request.port, timeout=15)
             ftp.login(request.login, password)
             ftp.prot_p()
-        except (ssl.SSLError, ftplib.error_perm):
+        except (ssl.SSLError, ftplib.error_perm) as e:
+            if "534" in str(e):
+                    raise Exception(f"FTP Error: {str(e)}")
+            
             ftp = ftplib.FTP()
             ftp.connect(request.host, request.port, timeout=15)
             ftp.login(request.login, password)

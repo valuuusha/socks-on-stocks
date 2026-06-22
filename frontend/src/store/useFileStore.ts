@@ -1,5 +1,5 @@
 import { create } from "zustand";
-
+import type { ReactNode } from "react";
 import type { ImportedFile } from "../api/client";
 
 export type { ImportedFile };
@@ -9,6 +9,7 @@ export type FileStoreState = {
   isImporting: boolean;
   selectedFileId: number | null;
   selectedFileIds: number[];
+  importWarnings: ReactNode | null;
 };
 
 export type FileStoreActions = {
@@ -21,6 +22,7 @@ export type FileStoreActions = {
   toggleSelection: (id: number) => void;
   selectAll: () => void;
   deselectAll: () => void;
+  setImportWarnings: (warnings: ReactNode | null) => void;
 };
 
 type FileStore = FileStoreState & FileStoreActions;
@@ -35,6 +37,8 @@ export const useFileStore = create<FileStore>()((set) => ({
   isImporting: false,
   selectedFileId: getInitialSelectedId(),
   selectedFileIds: [],
+  importWarnings: null,
+  setImportWarnings: (importWarnings) => set({ importWarnings }),
   addFiles: (newFiles) =>
     set((state) => {
       const existingIds = new Set(state.files.map((f) => f.id));

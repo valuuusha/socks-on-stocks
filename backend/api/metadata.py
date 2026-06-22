@@ -9,7 +9,6 @@ router = APIRouter(prefix="/api/metadata", tags=["Metadata"])
 
 @router.get("/sync")
 def sync_metadata(db: Session = Depends(get_db)):
-    """Синхронізує метадані між фізичними файлами та БД за 4 правилами."""
     files = db.query(LocalFile).filter(LocalFile.status != "removed").all()
     conflicts = []
     
@@ -36,18 +35,18 @@ def sync_metadata(db: Session = Depends(get_db)):
         file_has = any([file_meta["title"], file_meta["description"], file_meta["keywords"]])
         db_has = any([db_meta["title"], db_meta["description"], db_meta["keywords"]])
         
-        if not file_has:
-            pass
-        
-        elif not db_has:
+        if file_has and not db_has:
             db_row.title = file_meta["title"]
             db_row.description = file_meta["description"]
             db_row.keywords = file_meta["keywords"]
             db.commit()
             
-        else:
-            f_kw = sorted(file_meta["keywords"])
-            d_kw = sorted(db_meta["keywords"])
+        elif not file_has:
+            pass
+            
+        elif file_has and db_has:
+            f_kw = sorted([k.lower() for k in file_meta["keywords"]])
+            d_kw = sorted([k.lower() for k in db_meta["keywords"]])
             if file_meta["title"] != db_meta["title"] or \
                file_meta["description"] != db_meta["description"] or \
                f_kw != d_kw:

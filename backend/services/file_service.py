@@ -11,7 +11,6 @@ from backend.services.thumbnail_service import (
     preview_generator,
 )
 
-
 class FileImportService:
     """Validates and imports JPEG files into the local workspace."""
 
@@ -58,6 +57,10 @@ class FileImportService:
             try:
                 preview_generator.validate_jpeg(path)
                 file_size_kb = round(source_path.stat().st_size / 1024, 2)
+
+                if file_size_kb > 50 * 1024:
+                    rejected_files.append(RejectedFile(path=path, reason="File exceeds 50 MB limit."))
+                    continue
             except (OSError, PreviewGenerationError) as exc:
                 rejected_files.append(
                     RejectedFile(
