@@ -1,12 +1,9 @@
-import os
-import io
-import zipfile
 import subprocess
 import shutil
-import tempfile
+import sys
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse as ThumbnailFileResponse, Response
+from fastapi.responses import FileResponse as ThumbnailFileResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -33,9 +30,11 @@ from backend.services.upload_storage_service import (
 router = APIRouter(prefix="/api/files", tags=["files"])
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-EXIFTOOL_PERL = BACKEND_DIR / "exiftool_files" / "perl.exe"
-EXIFTOOL_SCRIPT = BACKEND_DIR / "exiftool_files" / "exiftool.pl"
-EXIFTOOL_EXE = BACKEND_DIR / "exiftool.exe"
+
+def _runtime_base_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    return BACKEND_DIR
 
 def _save_imported_records(db: Session, records: list[LocalFile], rejected_files: list[RejectedFile]) -> list[LocalFile]:
     if not records:
@@ -57,17 +56,53 @@ def _save_imported_records(db: Session, records: list[LocalFile], rejected_files
             )
         return []
 
-def _get_exiftool_command() -> list[str]:
-    if EXIFTOOL_PERL.exists() and EXIFTOOL_SCRIPT.exists():
-        return [str(EXIFTOOL_PERL), str(EXIFTOOL_SCRIPT)]
-    if EXIFTOOL_EXE.exists():
-        return [str(EXIFTOOL_EXE)]
-    return ["exiftool"]
+def _get_exiftool_command() -> list[str] | None:
+    candidate_dirs = [BACKEND_DIR, _runtime_base_dir()]
+    for base_dir in candidate_dirs:
+        exiftool_perl = base_dir / "exiftool_files" / "perl.exe"
+        exiftool_script = base_dir / "exiftool_files" / "exiftool.pl"
+        exiftool_exe = base_dir / "exiftool.exe"
+
+        if exiftool_perl.exists() and exiftool_script.exists():
+            return [str(exiftool_perl), str(exiftool_script)]
+        if exiftool_exe.exists():
+            return [str(exiftool_exe)]
+
+    system_exiftool = shutil.which("exiftool")
+    if system_exiftool:
+        return [system_exiftool]
+
+    for exiftool_path in (
+        Path("/opt/homebrew/bin/exiftool"),
+        Path("/usr/local/bin/exiftool"),
+        Path("/usr/bin/exiftool"),
+    ):
+        if exiftool_path.exists():
+            return [str(exiftool_path)]
+
+    return None
 
 
-def _write_exif_data(file_path: str, title: str, description: str, keywords: list[str]):
+def _write_exif_data(
+    file_path: str,
+    title: str,
+    description: str,
+    keywords: list[str],
+    *,
+    require_exiftool: bool = False,
+):
+    if not title and not description and not keywords:
+        return
+
+    exiftool_command = _get_exiftool_command()
+    if exiftool_command is None:
+        if require_exiftool:
+            raise RuntimeError("ExifTool is not available.")
+        print("ExifTool is not available; skipping EXIF metadata write.")
+        return
+
     cmd = [
-        *_get_exiftool_command(),
+        *exiftool_command,
         "-overwrite_original",
         "-charset",
         "UTF8",
@@ -99,25 +134,28 @@ def _write_exif_data(file_path: str, title: str, description: str, keywords: lis
             f"-IPTC:Keywords={kw_str}",
             f"-EXIF:XPKeywords={windows_keywords}",
         ])
-    if len(cmd) > 6:
-        cmd.append(file_path)
-        result = subprocess.run(
-            cmd,
-            check=False,
-            capture_output=True,
-            cwd=str(BACKEND_DIR),
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
-        if result.returncode != 0:
-            message = result.stderr.strip() or result.stdout.strip() or "ExifTool failed."
-            raise RuntimeError(message)
+    cmd.append(file_path)
+    result = subprocess.run(
+        cmd,
+        check=False,
+        capture_output=True,
+        cwd=str(BACKEND_DIR) if BACKEND_DIR.exists() else None,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip() or "ExifTool failed."
+        raise RuntimeError(message)
         
 def _read_exif_data(file_path: str) -> dict:
     import json
+    exiftool_command = _get_exiftool_command()
+    if exiftool_command is None:
+        return {"title": "", "description": "", "keywords": []}
+
     cmd = [
-        *_get_exiftool_command(),
+        *exiftool_command,
         "-charset", "UTF8",
         "-j",
         "-XMP:Title", "-IPTC:ObjectName",
@@ -127,7 +165,7 @@ def _read_exif_data(file_path: str) -> dict:
     ]
     result = subprocess.run(
         cmd, capture_output=True, text=True,
-        encoding="utf-8", errors="replace", cwd=str(BACKEND_DIR),
+        encoding="utf-8", errors="replace", cwd=str(BACKEND_DIR) if BACKEND_DIR.exists() else None,
     )
     if result.returncode != 0 or not result.stdout.strip():
         return {"title": "", "description": "", "keywords": []}
@@ -269,47 +307,35 @@ def export_files(request: ExportRequest, db: Session = Depends(get_db)):
     if db.dirty:
         db.commit()
     
-    zip_buffer = io.BytesIO()
-    seen_names = {}
+    updated_files: list[str] = []
 
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        with tempfile.TemporaryDirectory(prefix="socks_on_stocks_export_") as temp_dir:
-            temp_export_dir = Path(temp_dir)
+    for file_record, source_path in export_items:
+        meta = db.query(FileMetadata).filter(FileMetadata.file_id == file_record.id).first()
 
-            for file_record, source_path in export_items:
-                meta = db.query(FileMetadata).filter(FileMetadata.file_id == file_record.id).first()
-                
-                title = meta.title if meta and meta.title else ""
-                description = meta.description if meta and meta.description else ""
-                keywords = meta.keywords if meta and meta.keywords else []
-                
-                name = Path(file_record.filename).name or f"file-{file_record.id}.jpg"
-                if name in seen_names:
-                    seen_names[name] += 1
-                    name_part, ext_part = os.path.splitext(name)
-                    arcname = f"{name_part} ({seen_names[name]}){ext_part}"
-                else:
-                    seen_names[name] = 0
-                    arcname = name
+        title = meta.title if meta and meta.title else ""
+        description = meta.description if meta and meta.description else ""
+        keywords = meta.keywords if meta and meta.keywords else []
 
-                export_copy_path = temp_export_dir / arcname
-                shutil.copy2(source_path, export_copy_path)
+        try:
+            _write_exif_data(
+                str(source_path),
+                title,
+                description,
+                keywords,
+                require_exiftool=True,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Metadata could not be written for {file_record.filename}: {exc}",
+            ) from exc
 
-                try:
-                    _write_exif_data(str(export_copy_path), title, description, keywords)
-                except RuntimeError as exc:
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Metadata could not be written for {file_record.filename}: {exc}",
-                    ) from exc
-                    
-                zip_file.write(export_copy_path, arcname=arcname)
+        updated_files.append(file_record.filename)
 
-    return Response(
-        content=zip_buffer.getvalue(),
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=exported_stocks.zip"}
-    )
+    return {
+        "updated": len(updated_files),
+        "files": updated_files,
+    }
 
 @router.get("/{file_id}/thumbnail", response_class=ThumbnailFileResponse)
 def get_file_thumbnail(file_id: int, db: Session = Depends(get_db)) -> ThumbnailFileResponse:

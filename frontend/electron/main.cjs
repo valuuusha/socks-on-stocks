@@ -88,7 +88,11 @@ function createWindow(apiUrl) {
     minWidth: 1024,
     minHeight: 700,
     title: "Socks on Stocks",
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
   });
 
   if (process.env.ELECTRON_START_URL) {

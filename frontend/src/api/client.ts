@@ -213,7 +213,12 @@ export const updateMetadata = async (fileId: number, data: Partial<FileMetadata>
   return response.json();
 };
 
-export const exportSelectedFiles = async (fileIds: number[]) => {
+export type ExportSelectedResult = {
+  updated: number;
+  files: string[];
+};
+
+export const exportSelectedFiles = async (fileIds: number[]): Promise<ExportSelectedResult> => {
   const response = await fetch(`${API_BASE_URL}/api/files/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -225,15 +230,7 @@ export const exportSelectedFiles = async (fileIds: number[]) => {
     throw new Error(`Export failed (${response.status}): ${errorText}`);
   }
 
-  const blob = await response.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `SocksOnStocks_Export_${Date.now()}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
+  return response.json();
 };
 
 export type FtpProfile = {

@@ -170,11 +170,11 @@ export const App = () => {
     setDuplicateMessage("");
 
     try {
-      await exportSelectedFiles(selectedFileIds);
-      setExportMessage(`Exported ${selectedFileIds.length} file(s) to ZIP.`);
+      const result = await exportSelectedFiles(selectedFileIds);
+      setExportMessage(`Metadata written to ${result.updated} original file(s).`);
     } catch (error) {
       console.error("Failed to export selected files:", error);
-      setExportMessage("Selected files could not be exported.");
+      setExportMessage("Metadata could not be written to selected files.");
     } finally {
       setIsExporting(false);
     }

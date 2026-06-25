@@ -1,11 +1,19 @@
 import React, { useRef, useState } from "react";
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 
-import { uploadFiles } from "../api/client";
+import { importFiles, uploadFiles } from "../api/client";
 import { useFileStore } from "../store/useFileStore";
 
 const ACCEPTED_FILE_TYPES = ".jpg,.jpeg,image/jpeg";
 const POPUP_AUTO_HIDE_MS = 7000;
+
+declare global {
+  interface Window {
+    socksOnStocks?: {
+      getPathForFile: (file: File) => string;
+    };
+  }
+}
 
 const isJpegFile = (file: File) => {
   const lowerCaseName = file.name.toLowerCase();
@@ -97,7 +105,13 @@ export const DropzoneArea = () => {
     if (validFiles.length > 0) {
       setIsImporting(true);
       try {
-        const result = await uploadFiles(validFiles);
+        const paths = validFiles
+          .map((file) => window.socksOnStocks?.getPathForFile(file) ?? "")
+          .filter(Boolean);
+        const result = paths.length === validFiles.length
+          ? await importFiles(paths)
+          : await uploadFiles(validFiles);
+
         addFiles(result.imported);
 
         if (result.rejected.length > 0) {
